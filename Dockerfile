@@ -1,20 +1,31 @@
-FROM node:22-alpine
+FROM node:22-alpine AS build
 
-# Build tools for better-sqlite3 native compilation
+# better-sqlite3
 RUN apk add --no-cache python3 make g++
 
-WORKDIR /usr/src/app
+WORKDIR /app
 
-# Copy package manifest and install dependencies
 COPY package*.json ./
 RUN npm install --production
 
-# Copy the rest of the application code
 COPY . .
 
-# Mountable volumes for config and data persistence
-VOLUME ["/usr/src/app/config", "/usr/src/app/data"]
+
+FROM node:22-alpine AS runtime
+
+WORKDIR /app
+
+COPY --from=build /app ./
+
+VOLUME ["/app/config", "/app/data"]
 
 EXPOSE 3111
 
 CMD ["npm", "start"]
+
+LABEL org.opencontainers.image.source="https://git.csmpro.ru/csmpro/plane-telegram-webhooks"
+LABEL org.opencontainers.image.url="https://git.csmpro.ru/csmpro/plane-telegram-webhooks"
+LABEL org.opencontainers.image.authors="CyberSport Masters"
+LABEL org.opencontainers.image.title="plane-telegram-webhooks"
+LABEL org.opencontainers.image.description="Forwards Plane webhook events to Telegram"
+LABEL org.opencontainers.image.licenses="AGPL-3.0-only"
