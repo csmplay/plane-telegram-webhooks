@@ -1,0 +1,16 @@
+{
+  "name": "plane-telegram-webhooks",
+  "version": "0.0.1",
+  "description": "Forwards Plane webhook events to Telegram",
+  "main": "app/app.js",
+  "scripts": {
+    "start": "node app/app.js"
+  },
+  "license": "AGPL-3.0",
+  "dependencies": {
+    "better-sqlite3": "^12.6.2",
+    "dotenv": "^16.4.5",
+    "express": "^4.18.2",
+    "node-telegram-bot-api": "^0.64.0"
+  }
+}

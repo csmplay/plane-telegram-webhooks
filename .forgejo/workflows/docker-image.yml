@@ -1,0 +1,48 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push-docker:
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
+    env:
+      REGISTRY_URL: git.csmpro.ru
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+
+
+      - name: Log in to Forgejo Container Registry
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3
+        with:
+          registry: ${{ env.REGISTRY_URL }}
+          username: csmpro
+          password: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: Build Docker Image
+        run: |
+          IMAGE=${{ env.REGISTRY_URL }}/csmpro/plane-telegram-webhooks
+          TAGS="-t ${IMAGE}:${{ github.ref_name }}"
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            TAGS="${TAGS} -t ${IMAGE}:latest"
+          fi
+          docker build \
+            $TAGS \
+            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            --label "org.opencontainers.image.version=${{ github.ref_name }}" \
+            --label "org.opencontainers.image.created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            .
+
+      - name: Push Docker Image
+        run: |
+          docker push --all-tags ${{ env.REGISTRY_URL }}/csmpro/plane-telegram-webhooks
