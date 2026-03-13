@@ -3,3 +3,6 @@ node_modules/
 data/
 config/
 .direnv/
+.pnp.loader.mjs
+.pnp.cjs
+.yarn/

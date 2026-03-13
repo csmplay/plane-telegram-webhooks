@@ -5,6 +5,9 @@ RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
 
+RUN corepack enable \
+    && corepack prepare yarn@stable --activate
+
 COPY package*.json ./
 RUN npm install --production
 
@@ -21,7 +24,7 @@ VOLUME ["/app/config", "/app/data"]
 
 EXPOSE 3111
 
-CMD ["npm", "start"]
+CMD ["yarn", "start"]
 
 LABEL org.opencontainers.image.source="https://git.csmpro.ru/csmpro/plane-telegram-webhooks"
 LABEL org.opencontainers.image.url="https://git.csmpro.ru/csmpro/plane-telegram-webhooks"

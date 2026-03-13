@@ -7,8 +7,8 @@ Forwards Plane webhook events to Telegram.
 Copy `.env.example` to `.env` and fill in the values.
 
 ```sh
-npm i
-npm start
+yarn install
+yarn start
 ```
 
 
