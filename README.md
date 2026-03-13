@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 CyberSport Masters <git@csmpro.ru> -->
+<!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
+
 # plane-telegram-webhooks
 
 Forwards Plane webhook events to Telegram.

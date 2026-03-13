@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 CyberSport Masters <git@csmpro.ru>
+// SPDX-License-Identifier: AGPL-3.0-only
+
 const TelegramBot = require('node-telegram-bot-api');
 const db = require('./database');
 const logger = require('./logger');

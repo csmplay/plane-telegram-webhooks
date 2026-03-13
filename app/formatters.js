@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 CyberSport Masters <git@csmpro.ru>
+// SPDX-License-Identifier: AGPL-3.0-only
+
 const escapeHtml = (value) => String(value || '')
   .replace(/&/g, '&amp;')
   .replace(/</g, '&lt;')

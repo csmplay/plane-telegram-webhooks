@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# SPDX-FileCopyrightText: 2024-2026 CyberSport Masters <git@csmpro.ru>
+# SPDX-License-Identifier: AGPL-3.0-only
+
 set -euo pipefail
 
 if [ -z "${1:-}" ]; then
