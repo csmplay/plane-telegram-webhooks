@@ -5,9 +5,33 @@ const logger = require('./logger');
 
 const DATA_DIR = path.join(__dirname, '../data');
 const DB_PATH = path.join(DATA_DIR, 'messages.db');
+const JSON_PATH = path.join(DATA_DIR, 'messages.json');
+const BACKUP_PATH = path.join(DATA_DIR, 'messages.backup.json');
 
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+if (!fs.existsSync(DB_PATH) && fs.existsSync(JSON_PATH)) {
+  logger.info('Migrating messages.json to messages.db...');
+  const messages = JSON.parse(fs.readFileSync(JSON_PATH, 'utf8'));
+  const db = new Database(DB_PATH);
+  db.pragma('journal_mode = WAL');
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS messages (
+      task_number TEXT PRIMARY KEY,
+      message_id INTEGER NOT NULL
+    )
+  `);
+  const stmt = db.prepare('INSERT OR REPLACE INTO messages (task_number, message_id) VALUES (?, ?)');
+  let count = 0;
+  for (const [taskNumber, messageId] of Object.entries(messages)) {
+    stmt.run(taskNumber, messageId);
+    count++;
+  }
+  db.close();
+  logger.info(`Migrated ${count} messages.`);
+  fs.renameSync(JSON_PATH, BACKUP_PATH);
 }
 
 const db = new Database(DB_PATH);
