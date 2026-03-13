@@ -73,7 +73,7 @@ const buildMessage = ({ issue, activity, projectIdentifier, baseUrl, workspaceSl
     : '';
 
   const creator = activity.originalCreator
-    ? formatUserMention(activity.originalCreator)
+    ? escapeHtml(activity.originalCreator)
     : '';
 
   return template.render({
