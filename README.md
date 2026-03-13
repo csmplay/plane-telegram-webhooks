@@ -11,15 +11,18 @@ npm i
 npm start
 ```
 
-Or with Docker:
+
+## Docker
+
+You can run the app using the prebuilt image:
+
 
 ```sh
-docker build -t plane-telegram-webhooks .
-docker run -d --env-file .env -p 3111:3111 \
-  -v ./config:/usr/src/app/config \
-  -v ./data:/usr/src/app/data \
-  plane-telegram-webhooks
+docker pull git.csmpro.ru/csmpro/plane-telegram-webhooks:latest
+docker run --env-file .env -v $(pwd)/data:/app/data -p 1488:1488 git.csmpro.ru/csmpro/plane-telegram-webhooks:latest
 ```
+
+Or use [docker-compose file](docker-compose.yml).
 
 ## Config files
 
@@ -37,4 +40,4 @@ Put these in `config/` (gitignored).
 
 ## License
 
-AGPL-3.0-or-later. See [LICENSE](LICENSE).
+AGPL-3.0-only. See [LICENSE](LICENSE).
