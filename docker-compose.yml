@@ -1,0 +1,20 @@
+services:
+  plane-discord-webhooks:
+    image: git.csmpro.ru/csmpro/plane-telegram-webhooks:latest
+    container_name: plane-discord-webhooks
+    env_file:
+      - .env
+    volumes:
+      - webhooks_data:/app/data
+      - ./config:/app/config:ro
+    ports:
+      - "1488:1488"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:1488/health', res => process.exit(res.statusCode === 200 ? 0 : 1))"]
+      interval: 5s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  webhooks_data:

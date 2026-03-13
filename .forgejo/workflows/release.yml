@@ -1,0 +1,75 @@
+name: Release notes
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    name: Push Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      REPO_URL: git.csmpro.ru
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Install jq
+        run: |
+          apt update
+          apt install -y jq
+
+      - name: Generate Release Notes
+        id: release_notes
+        run: |
+          mkdir -p release
+          API_URL="https://${{ env.REPO_URL }}/api/v1"
+          CUR_TAG="${{ github.ref_name }}"
+          TAGS=$(curl -s -H "Authorization: token ${{ secrets.RELEASE_TOKEN }}" "$API_URL/repos/${{ github.repository }}/tags" | jq -r '.[] | "\(.name) \(.commit.sha)"')
+          PREV_TAG=$(echo "$TAGS" | grep -v "$CUR_TAG" | head -n1 | awk '{print $2}')
+          NOTES=$(curl -s -H "Authorization: token ${{ secrets.RELEASE_TOKEN }}" "$API_URL/repos/${{ github.repository }}/compare/$PREV_TAG...$CUR_TAG" | jq -r --arg TAG_MSG "chore: release $CUR_TAG" '.commits[] as $c | ($c.commit.message | split("\n")[0] | ltrimstr(" ") | rtrimstr(" ")) as $title | select($title != $TAG_MSG) | "- \($title) \($c.sha[0:7]) (@\($c.author.login // $c.commit.author.name))"')
+          {
+            echo "### Changelog"
+            echo "$NOTES"
+            echo ""
+            echo "---"
+            echo ""
+            echo "The CyberSport Masters and CSM logos are registered trademarks."
+            echo "They may not be used, copied, modified, or distributed without explicit written permission."
+            echo ""
+            echo "Made by [**CSM**](https://csmpro.ru)"
+          } > release/RELEASE_NOTES.md
+          echo "RELEASE_NOTES<<EOF" >> "$GITHUB_OUTPUT"
+          cat release/RELEASE_NOTES.md >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+          rm release/RELEASE_NOTES.md
+
+      - name: Copy and override docker-compose.yml for release
+        run: |
+          sed -i "s/:latest/:${{ github.ref_name }}/g" docker-compose.yml
+          mkdir deploy
+          cp .env.example deploy
+          cp docker-compose.yml deploy
+          mkdir deploy/config
+          mkdir release-tmp
+          tar -czf release-tmp/release.tar.gz deploy
+
+      - name: Release
+        uses: https://code.forgejo.org/actions/forgejo-release@fc0488c944626f9265d87fbc4dd6c08f78014c63 # v2.7.3
+        with:
+          direction: upload
+          url: ${{ github.server_url }}
+          repo: ${{ github.repository }}
+          token: ${{ secrets.RELEASE_TOKEN }}
+          tag: ${{ github.ref_name }}
+          release-dir: release-tmp
+          release-notes: ${{ steps.release_notes.outputs.RELEASE_NOTES }}
