@@ -1,53 +1,121 @@
 // SPDX-FileCopyrightText: 2026 CyberSport Masters <git@csmpro.ru>
 // SPDX-License-Identifier: AGPL-3.0-only
 
+const sanitizeHtml = require('sanitize-html');
+
 const escapeHtml = (value) => String(value || '')
   .replace(/&/g, '&amp;')
   .replace(/</g, '&lt;')
   .replace(/>/g, '&gt;');
 
 const truncateText = (text, maxLength) => {
-  if (!text || text.length <= maxLength) return text;
-
-  // Find a safe cut point that doesn't break URLs
-  let cut = maxLength;
-  const urlAt = text.lastIndexOf('http', cut);
-  if (urlAt !== -1 && urlAt > cut - 60) {
-    // We'd cut inside a URL — include the full URL then cut
-    const urlEnd = text.indexOf(' ', urlAt);
-    cut = urlEnd !== -1 ? urlEnd : text.length;
+  if (!text || text.length <= maxLength) {
+    return text;
   }
 
-  return text.substring(0, cut).trimEnd() + (cut < text.length ? '...' : '');
+  let cutoff = maxLength;
+
+  const nextNewline = text.indexOf('\n', maxLength);
+  const nextBr = text.indexOf('<br', maxLength);
+  let endOfLine;
+  if (nextNewline > -1 && nextBr > -1) {
+    endOfLine = Math.min(nextNewline, nextBr);
+  } else if (nextNewline > -1) {
+    endOfLine = nextNewline;
+  } else if (nextBr > -1) {
+    endOfLine = nextBr;
+  } else {
+    endOfLine = text.length;
+  }
+
+  if (endOfLine - maxLength <= 50) {
+    cutoff = endOfLine;
+  } else {
+    const lastSpace = text.substring(0, maxLength).lastIndexOf(' ');
+    if (lastSpace !== -1) {
+      cutoff = lastSpace;
+    }
+  }
+
+  const partBeforeOriginalCut = text.substring(0, maxLength);
+  const lastOpenParen = partBeforeOriginalCut.lastIndexOf('(');
+  const lastCloseParen = partBeforeOriginalCut.lastIndexOf(')');
+
+  if (lastOpenParen > lastCloseParen) {
+    const endOfParen = text.indexOf(')', lastOpenParen);
+    if (endOfParen !== -1) {
+      cutoff = endOfParen + 1;
+    }
+  }
+
+  let truncated = text.substring(0, cutoff);
+
+  const lastOpeningBracket = truncated.lastIndexOf('<');
+  const lastClosingBracket = truncated.lastIndexOf('>');
+  if (lastOpeningBracket > lastClosingBracket) {
+    truncated = truncated.substring(0, lastOpeningBracket);
+  }
+
+  const tags = ['b', 'i', 'u', 's', 'code'];
+  for (const tag of tags) {
+    const openTag = `<${tag}>`;
+    const closeTag = `</${tag}>`;
+    const openCount = (truncated.split(openTag).length - 1);
+    const closeCount = (truncated.split(closeTag).length - 1);
+
+    if (openCount > closeCount) {
+      truncated += closeTag.repeat(openCount - closeCount);
+    }
+  }
+
+  return truncated + (text.length > truncated.length ? '...' : '');
 };
 
 const normalizeDescription = (htmlDescription) => {
   if (!htmlDescription) return '';
 
-  const normalized = htmlDescription
-    .replace(/<a\s[^>]*href="([^"]+)"[^>]*>(.*?)<\/a>/gi, '$2 ($1)')
+  let safe = htmlDescription.replace(/<a\s[^>]*href="([^"]+)"[^>]*>(.*?)<\/a>/gi, (match, url, text) => {
+    const trimmedText = text.trim();
+    if (!trimmedText) return `(${url})`;
+
+    const cleanUrl = url.replace(/^(https?:\/\/)?(www\.)?/, '');
+    const cleanText = trimmedText.replace(/^(https?:\/\/)?(www\.)?/, '');
+
+    if (cleanUrl === cleanText) {
+      return `(${url})`;
+    }
+
+    return `${trimmedText} (${url})`;
+  });
+
+  safe = safe
     .replace(/<strong(?:\s[^>]*)?>/gi, '<b>')
     .replace(/<\/strong>/gi, '</b>')
     .replace(/<em(?:\s[^>]*)?>/gi, '<i>')
-    .replace(/<\/em>/gi, '</i>')
-    .replace(/<u(?:\s[^>]*)?>/gi, '<u>')
-    .replace(/<\/u>/gi, '</u>')
-    .replace(/<s(?:\s[^>]*)?>/gi, '<s>')
-    .replace(/<\/s>/gi, '</s>')
-    .replace(/<code(?:\s[^>]*)?>/gi, '<code>')
-    .replace(/<\/code>/gi, '</code>')
+    .replace(/<\/em>/gi, '</i>');
+
+  safe = safe
+    .replace(/<li[^>]*data-checked="true"[^>]*>/gi, '[x] ')
+    .replace(/<li[^>]*data-checked="false"[^>]*>/gi, '[ ] ')
     .replace(/<br\s*\/?\s*>/gi, '\n')
-    .replace(/<\/p>/gi, '\n')
-    .replace(/<p[^>]*>/gi, '')
     .replace(/<li[^>]*>/gi, '• ')
     .replace(/<\/li>/gi, '\n')
     .replace(/<\/?(ul|ol|div|image-component)[^>]*>/gi, '')
-    .replace(/<(?!\/?(b|i|u|s|code)\b)[^>]+>/gi, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
+    .replace(/<p[^>]*>/gi, '')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/&nbsp;/g, ' ');
 
-  return truncateText(normalized, 100);
+  safe = sanitizeHtml(safe, {
+    allowedTags: ['b', 'i', 'u', 's', 'code'],
+    allowedAttributes: {},
+    selfClosing: [],
+    parser: { lowerCaseTags: true },
+    textFilter: function(text) {
+      return text.replace(/\n{3,}/g, '\n\n');
+    }
+  });
+
+  return truncateText(safe.trim(), 200);
 };
 
 const formatDate = (dateString, dateFormat = {}) => {
