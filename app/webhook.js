@@ -150,7 +150,7 @@ const handleNotification = (config) => async (req, res) => {
 
     const taskNumber = generateTaskNumber(projectIdentifier, payload.issue.sequence_id);
 
-    logger.info(`Webhook received: ${action.toUpperCase()}`, {
+    logger.debug(`Webhook received: ${action.toUpperCase()}`, {
       taskNumber,
       issue: payload.issue.name,
       state: stateGroup
@@ -220,9 +220,9 @@ const handleNotification = (config) => async (req, res) => {
         chatId: config.chatId,
         threadId: config.threadId
       });
-      logger.info(`Scheduled post (no existing message)`, { taskNumber });
+      logger.info(`Scheduled post`, { taskNumber });
     } else {
-      logger.info(`Skipped scheduling post for finished task (no existing message)`, { taskNumber, state: stateGroup });
+      logger.info(`Skipped scheduling post for finished task`, { taskNumber, state: stateGroup });
     }
 
     return res.sendStatus(200);
