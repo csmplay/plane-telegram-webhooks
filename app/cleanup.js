@@ -18,12 +18,10 @@ const scheduleCleanup = ({ taskNumber, chatId }) => {
     try {
       const messageId = db.getMessageId(taskNumber);
 
-      if (messageId) {
-        await telegramService.deleteNotification({ messageId, chatId });
+      if (!messageId || (await telegramService.deleteNotification({ messageId, chatId }))) {
+        db.deleteMessageId(taskNumber);
+        logger.info(`Cleaned up completed task`, { taskNumber });
       }
-
-      db.deleteMessageId(taskNumber);
-      logger.info(`Cleaned up completed task`, { taskNumber });
     } catch (error) {
       logger.error(`Cleanup failed for task`, { taskNumber, error: error.message });
     } finally {
@@ -56,11 +54,10 @@ const cancelAll = () => {
 const runCleanup = async (taskNumber, chatId) => {
   try {
     const messageId = db.getMessageId(taskNumber);
-    if (messageId) {
-      await telegramService.deleteNotification({ messageId, chatId });
+    if (!messageId || (await telegramService.deleteNotification({ messageId, chatId }))) {
+      db.deleteMessageId(taskNumber);
+      logger.info(`Cleaned up completed task`, { taskNumber });
     }
-    db.deleteMessageId(taskNumber);
-    logger.info(`Cleaned up completed task`, { taskNumber });
   } catch (error) {
     logger.error(`Cleanup failed for task`, { taskNumber, error: error.message });
   }
