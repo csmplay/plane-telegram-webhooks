@@ -22,7 +22,7 @@ You can run the app using the prebuilt image:
 
 ```sh
 docker pull git.csmpro.ru/csmpro/plane-telegram-webhooks:latest
-docker run --env-file .env -v $(pwd)/data:/app/data -p 1488:1488 git.csmpro.ru/csmpro/plane-telegram-webhooks:latest
+docker run --env-file .env -v $(pwd)/data:/app/data -p 3111:3111 git.csmpro.ru/csmpro/plane-telegram-webhooks:latest
 ```
 
 Or use [docker-compose file](docker-compose.yml).

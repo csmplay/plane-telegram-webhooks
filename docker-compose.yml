@@ -8,7 +8,7 @@ services:
       - webhooks_data:/app/data
       - ./config:/app/config:ro
     ports:
-      - "1488:1488"
+      - "3111:3111"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:1488/health', res => process.exit(res.statusCode === 200 ? 0 : 1))"]
