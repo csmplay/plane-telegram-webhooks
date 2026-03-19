@@ -12,18 +12,28 @@ const {
   generateTaskNumber
 } = require('./formatters');
 
-const getTelegramUserId = (planeDisplayName) => {
+const getTelegramUserId = (user) => {
   try {
-    const userMap = require(path.join(__dirname, '../config/users.json'));
-    return userMap[planeDisplayName] || null;
+    if (!user) return null;
+
+    const raw = require(path.join(__dirname, '../config/users.json'));
+
+    const map = { ...raw };
+    for (const k in raw) {
+      map[k.toLowerCase()] = raw[k];
+    }
+
+    const lowerName = user.display_name?.toLowerCase();
+
+    return map[user.id] ?? map[lowerName] ?? null;
   } catch {
     return null;
   }
 };
 
-const formatUserMention = (displayName) => {
-  const tgId = getTelegramUserId(displayName);
-  const escaped = escapeHtml(displayName);
+const formatUserMention = (user) => {
+  const tgId = getTelegramUserId(user);
+  const escaped = escapeHtml(user.display_name);
   return tgId ? `<a href="tg://user?id=${tgId}">${escaped}</a>` : escaped;
 };
 
@@ -72,7 +82,7 @@ const buildMessage = ({ issue, activity, projectIdentifier, baseUrl, workspaceSl
   }
 
   const assignees = issue.assignees?.length
-    ? issue.assignees.map(a => formatUserMention(a.display_name)).join(', ')
+    ? issue.assignees.map(formatUserMention).join(', ')
     : '';
 
   const creator = activity.originalCreator
