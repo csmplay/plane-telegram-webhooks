@@ -11,7 +11,7 @@ const init = () => {
   bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: false });
 };
 
-const sendNotification = async ({ message, taskNumber, chatId, threadId }) => {
+const sendNotification = async ({ message, taskId, taskNumber, chatId, threadId }) => {
   try {
     const options = {
       parse_mode: 'HTML',
@@ -23,7 +23,7 @@ const sendNotification = async ({ message, taskNumber, chatId, threadId }) => {
     }
 
     const sentMessage = await bot.sendMessage(chatId, message, options);
-    db.setMessageId(taskNumber, sentMessage.message_id);
+    db.setMessageId(taskId, sentMessage.message_id);
 
     logger.info(`Sent to Telegram`, { taskNumber, messageId: sentMessage.message_id });
     return sentMessage.message_id;
@@ -33,8 +33,8 @@ const sendNotification = async ({ message, taskNumber, chatId, threadId }) => {
   }
 };
 
-const editNotification = async ({ message, taskNumber, chatId }) => {
-  const messageId = db.getMessageId(taskNumber);
+const editNotification = async ({ message, taskId, taskNumber, chatId }) => {
+  const messageId = db.getMessageId(taskId);
   if (!messageId) return null;
 
   try {

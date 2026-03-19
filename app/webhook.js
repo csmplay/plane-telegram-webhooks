@@ -15,6 +15,14 @@ const REQUEST_CACHE_MAX = 1000;
 const REQUEST_CACHE_TTL_MS = 5 * 60 * 1000;
 const requestCache = new Map();
 
+const getEventTimestampMs = (issue) => {
+  const ts = issue?.updatedAt || issue?.createdAt;
+  if (!ts) return null;
+  const ms = Date.parse(ts);
+  if (!Number.isFinite(ms)) return null;
+  return ms;
+};
+
 const addToCache = (key) => {
   if (requestCache.size >= REQUEST_CACHE_MAX) {
     const firstKey = requestCache.keys().next().value;
@@ -54,6 +62,7 @@ const parseBody = (body) => {
     return {
       event,
       action,
+      webhookId: parsed.webhook_id || null,
       activity,
       project: data.project || parsed.project,
       created_by: data.created_by || parsed.created_by,
@@ -64,6 +73,7 @@ const parseBody = (body) => {
         labels: data.labels,
         assignees: data.assignees,
         updatedAt: data.updated_at,
+        createdAt: data.created_at,
         id: data.id,
         sequence_id: data.sequence_id,
         state: data.state,
@@ -101,17 +111,15 @@ const checkDuplicate = (req, res, next) => {
   const action = res.locals.payload.action;
   res.locals.action = action;
 
-  if (action !== 'created') {
-    return next();
-  }
+  const webhookId = res.locals.payload.webhookId;
+  if (action !== 'created') return next();
 
-  const requestId = `${res.locals.payload.issue.id}-${action}`;
+  const requestId = webhookId ? String(webhookId) : `${res.locals.payload.issue.id}-${action}`;
 
-    if (requestCache.has(requestId)) {
-    return res.sendStatus(200);
-  }
+  if (requestCache.has(requestId)) return res.sendStatus(200);
 
   addToCache(requestId);
+  res.locals.dedupRequestId = requestId;
   next();
 };
 
@@ -148,7 +156,31 @@ const handleNotification = (config) => async (req, res) => {
       }
     }
 
+    const taskId = payload.issue?.id ? String(payload.issue.id) : null;
     const taskNumber = generateTaskNumber(projectIdentifier, payload.issue.sequence_id);
+    const resolvedTaskId = taskId || taskNumber;
+
+    if (taskId && resolvedTaskId !== taskNumber) {
+      const existingStable = db.getMessageId(taskId);
+      if (!existingStable) {
+        const existingLegacy = db.getMessageId(taskNumber);
+        if (existingLegacy) {
+          db.setMessageId(taskId, existingLegacy);
+          db.deleteMessageId(taskNumber);
+          db.migrateLastEventTs(taskNumber, taskId);
+          logger.info('Migrated task mapping to stable key', {
+            taskId,
+            taskNumber
+          });
+        }
+      }
+    }
+
+    const eventTsMs = getEventTimestampMs(payload.issue);
+    if (eventTsMs !== null) {
+      const shouldApply = db.trySetLastEventTs(resolvedTaskId, eventTsMs);
+      if (!shouldApply) return res.sendStatus(200);
+    }
 
     logger.debug(`Webhook received: ${action.toUpperCase()}`, {
       taskNumber,
@@ -160,6 +192,8 @@ const handleNotification = (config) => async (req, res) => {
       logger.info(`Skipped posting for finished task`, { taskNumber, state: stateGroup });
       return res.sendStatus(200);
     }
+
+    const existingMessageId = db.getMessageId(resolvedTaskId);
 
     const activity = creatorName
       ? { ...payload.activity, originalCreator: creatorName }
@@ -174,7 +208,26 @@ const handleNotification = (config) => async (req, res) => {
     });
 
     if (action === 'created') {
+      if (existingMessageId) {
+        await telegramService.editNotification({
+          message,
+          taskId: resolvedTaskId,
+          taskNumber,
+          chatId: config.chatId
+        });
+
+        if (isFinished) {
+          cleanup.scheduleCleanup({ taskId: resolvedTaskId, taskNumber, chatId: config.chatId });
+        } else {
+          cleanup.cancelCleanup(resolvedTaskId);
+        }
+
+        logger.info('Edited existing message on created action', { taskNumber });
+        return res.sendStatus(200);
+      }
+
       debounce.scheduleInitialPost({
+        taskId: resolvedTaskId,
         taskNumber,
         message,
         chatId: config.chatId,
@@ -184,37 +237,38 @@ const handleNotification = (config) => async (req, res) => {
       return res.sendStatus(200);
     }
 
-    const pendingPost = debounce.pendingInitialPosts.get(taskNumber);
+    const pendingPost = debounce.pendingInitialPosts.get(resolvedTaskId);
 
     if (pendingPost) {
       if (isFinished) {
-        debounce.clearPendingPost(taskNumber);
+        debounce.clearPendingPost(resolvedTaskId);
         logger.info(`Cancelled pending post for finished task`, { taskNumber });
       } else {
-        debounce.pendingInitialPosts.set(taskNumber, { ...pendingPost, message });
+        debounce.pendingInitialPosts.set(resolvedTaskId, { ...pendingPost, message });
         logger.info(`Updated pending post snapshot`, { taskNumber });
       }
 
       return res.sendStatus(200);
     }
 
-    const postedMessageId = db.getMessageId(taskNumber);
+    const postedMessageId = db.getMessageId(resolvedTaskId);
 
     if (postedMessageId) {
       await telegramService.editNotification({
         message,
+        taskId: resolvedTaskId,
         taskNumber,
         chatId: config.chatId
       });
-      logger.info(`Edited existing message`, { taskNumber });
 
       if (isFinished) {
-        cleanup.scheduleCleanup({ taskNumber, chatId: config.chatId });
+        cleanup.scheduleCleanup({ taskId: resolvedTaskId, taskNumber, chatId: config.chatId });
       } else {
-        cleanup.cancelCleanup(taskNumber);
+        cleanup.cancelCleanup(resolvedTaskId);
       }
     } else if (!isFinished) {
       debounce.scheduleInitialPost({
+        taskId: resolvedTaskId,
         taskNumber,
         message,
         chatId: config.chatId,
@@ -227,8 +281,11 @@ const handleNotification = (config) => async (req, res) => {
 
     return res.sendStatus(200);
   } catch (error) {
-    logger.error('Webhook processing failed', { error: error.message });
-    return res.sendStatus(200);
+    logger.error('Webhook processing failed', { error: error.message, stack: error.stack });
+    if (res.locals.dedupRequestId) {
+      requestCache.delete(res.locals.dedupRequestId);
+    }
+    return res.status(500).send('Webhook processing failed');
   }
 };
 

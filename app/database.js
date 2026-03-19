@@ -54,6 +54,29 @@ const stmtSet = db.prepare('INSERT OR REPLACE INTO messages (task_number, messag
 const stmtDelete = db.prepare('DELETE FROM messages WHERE task_number = ?');
 const stmtCount = db.prepare('SELECT COUNT(*) AS count FROM messages');
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS event_state (
+    task_number TEXT PRIMARY KEY,
+    last_event_ts_ms INTEGER
+  )
+`);
+
+const stmtGetEventTs = db.prepare('SELECT last_event_ts_ms FROM event_state WHERE task_number = ?');
+const stmtDeleteEventTs = db.prepare('DELETE FROM event_state WHERE task_number = ?');
+
+// Atomically update last_event_ts_ms only if the incoming timestamp is newer.
+// Returns changes=1 when inserted/updated, changes=0 when blocked by the WHERE clause.
+const stmtTrySetLastEventTs = db.prepare(`
+  INSERT INTO event_state (task_number, last_event_ts_ms)
+  VALUES (?, ?)
+  ON CONFLICT(task_number) DO UPDATE SET
+    last_event_ts_ms = excluded.last_event_ts_ms
+  WHERE event_state.last_event_ts_ms IS NULL
+     OR event_state.last_event_ts_ms <= excluded.last_event_ts_ms
+`);
+
+const stmtSetEventTs = db.prepare('INSERT OR REPLACE INTO event_state (task_number, last_event_ts_ms) VALUES (?, ?)');
+
 const getMessageId = (taskNumber) => {
   const row = stmtGet.get(taskNumber);
   return row?.message_id;
@@ -85,5 +108,23 @@ module.exports = {
   setMessageId,
   deleteMessageId,
   getMessageCount,
+  getLastEventTs: (taskNumber) => {
+    const row = stmtGetEventTs.get(taskNumber);
+    return row?.last_event_ts_ms ?? null;
+  },
+  trySetLastEventTs: (taskNumber, tsMs) => {
+    const result = stmtTrySetLastEventTs.run(taskNumber, tsMs);
+    return result.changes > 0;
+  },
+  migrateLastEventTs: (fromTaskNumber, toTaskNumber) => {
+    const fromTs = stmtGetEventTs.get(fromTaskNumber)?.last_event_ts_ms ?? null;
+    if (fromTs === null) return;
+
+    const toTs = stmtGetEventTs.get(toTaskNumber)?.last_event_ts_ms ?? null;
+    if (toTs !== null) return;
+
+    stmtSetEventTs.run(toTaskNumber, fromTs);
+    stmtDeleteEventTs.run(fromTaskNumber);
+  },
   close
 };
