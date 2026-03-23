@@ -11,8 +11,9 @@ WORKDIR /app
 RUN corepack enable \
     && corepack prepare yarn@stable --activate
 
-COPY package*.json ./
-RUN npm install --production
+COPY package.json ./
+COPY yarn.lock ./
+RUN yarn install --immutable
 
 COPY . .
 
