@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 const logger = require('./logger');
-
-const cache = new Map();
+const cache = require('./cache');
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -66,15 +65,26 @@ const getUserDisplayName = async (userId, baseUrl, workspaceSlug, apiKey) => {
   if (!userId || !apiKey || !baseUrl || !workspaceSlug) return null;
 
   const cacheKey = `user:${workspaceSlug}:${userId}`;
-  if (cache.has(cacheKey)) return cache.get(cacheKey);
+  const cached = cache.get(cacheKey);
+  if (cached !== cache.MISSING) return cached;
 
   try {
     const data = await apiGet(`${baseUrl}/api/v1/workspaces/${workspaceSlug}/members/`, apiKey);
-    if (!Array.isArray(data)) return null;
+    const results = Array.isArray(data) ? data : (data.results || data);
+    if (!Array.isArray(results)) return null;
 
-    const displayName = data.find(m => m.id === userId)?.display_name;
-    if (displayName) cache.set(cacheKey, displayName);
-    return displayName || null;
+    for (const member of results) {
+      if (member?.id && member?.display_name) {
+        cache.set(`user:${workspaceSlug}:${member.id}`, member.display_name);
+      }
+    }
+
+    const value = cache.get(cacheKey);
+    if (value === cache.MISSING) {
+      cache.set(cacheKey, null);
+      return null;
+    }
+    return value;
   } catch (err) {
     logger.warn(`Failed to fetch user display name`, { userId, error: err.message });
     return null;
@@ -85,20 +95,67 @@ const getProjectIdentifier = async (projectId, baseUrl, workspaceSlug, apiKey) =
   if (!projectId || !apiKey || !baseUrl || !workspaceSlug) return null;
 
   const cacheKey = `project:${workspaceSlug}:${projectId}`;
-  if (cache.has(cacheKey)) return cache.get(cacheKey);
+  const cached = cache.get(cacheKey);
+  if (cached !== cache.MISSING) return cached;
 
   try {
     const data = await apiGet(`${baseUrl}/api/v1/workspaces/${workspaceSlug}/projects/`, apiKey);
     const results = data.results || data;
     if (!Array.isArray(results)) return null;
 
-    const identifier = results.find(p => p.id === projectId)?.identifier;
-    if (identifier) cache.set(cacheKey, identifier);
-    return identifier || null;
+    const identifier = results.find(p => p.id === projectId)?.identifier || null;
+    cache.set(cacheKey, identifier);
+    return identifier;
   } catch (err) {
     logger.warn(`Failed to fetch project identifier`, { projectId, error: err.message });
     return null;
   }
 };
 
-module.exports = { getUserDisplayName, getProjectIdentifier };
+const getProjectStates = async (projectId, baseUrl, workspaceSlug, apiKey) => {
+  if (!projectId || !apiKey || !baseUrl || !workspaceSlug) return null;
+
+  const cacheKey = `project_states:${workspaceSlug}:${projectId}`;
+  const cached = cache.get(cacheKey);
+  if (cached !== cache.MISSING) return cached;
+
+  try {
+    const data = await apiGet(
+      `${baseUrl}/api/v1/workspaces/${workspaceSlug}/projects/${projectId}/states/`,
+      apiKey
+    );
+    const results = Array.isArray(data) ? data : (data.results || data);
+    if (!Array.isArray(results)) {
+      logger.warn(`Project states response is not an array`, { projectId });
+      return null;
+    }
+
+    const stateMap = new Map();
+    for (const state of results) {
+      if (state?.id && state?.group) {
+        stateMap.set(state.id, state.group);
+      }
+    }
+    logger.debug(`Fetched project states`, { projectId, count: stateMap.size });
+    cache.set(cacheKey, stateMap);
+    return stateMap;
+  } catch (err) {
+    logger.warn(`Failed to fetch project states`, { projectId, error: err.message });
+    return null;
+  }
+};
+
+const getStateGroup = async (stateId, projectId, baseUrl, workspaceSlug, apiKey) => {
+  if (!stateId || !projectId || !apiKey || !baseUrl || !workspaceSlug) return null;
+
+  const stateMap = await getProjectStates(projectId, baseUrl, workspaceSlug, apiKey);
+  if (!stateMap) return null;
+
+  const group = stateMap.get(stateId) || null;
+  if (!group) {
+    logger.warn(`State not found in project`, { stateId, projectId });
+  }
+  return group;
+};
+
+module.exports = { getUserDisplayName, getProjectIdentifier, getStateGroup };
