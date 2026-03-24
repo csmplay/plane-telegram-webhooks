@@ -61,6 +61,24 @@ const DEFAULT_LINES = [
   '👨‍💻 Creator: <b>{creator}</b>',
 ];
 
+const DEFAULT_DM_LINES = [
+  '🔔 Task updated: <b>{taskName}</b>',
+  '',
+  '{changes}'
+];
+
+const DEFAULT_DM_CHANGE_TEMPLATES = {
+  state: '📊 Status: <b>{from}</b> → <b>{to}</b>',
+  stateNoOld: '📊 Status: <b>{to}</b>',
+  priority: '⚡ Priority: <b>{from}</b> → <b>{to}</b>',
+  priorityNoOld: '⚡ Priority: <b>{to}</b>',
+  deadline: '📆 Deadline: <b>{from}</b> → <b>{to}</b>',
+  deadlineNoOld: '📆 Deadline: <b>{to}</b>',
+  assignees: '👤 Assignees: <b>{from}</b> → <b>{to}</b>',
+  assigneesNoOld: '👤 Assignees: <b>{to}</b>',
+  notSetFallback: 'not set',
+};
+
 const DEFAULT_START_MESSAGE_LINES = [
   'Status: {status}',
   'Uptime: {uptime}',
@@ -114,7 +132,7 @@ const compileTemplate = (lines) => {
   };
 };
 
-const compileStartMessageTemplate = (lines) => {
+const compileLinesTemplate = (lines) => {
   return (vars) => {
     return lines
       .map(line => {
@@ -126,11 +144,21 @@ const compileStartMessageTemplate = (lines) => {
   };
 };
 
+const compileChangeTemplate = (str) => {
+  return (vars) => {
+    return str.replace(/\{(\w+)\}/g, (_, key) => {
+      return vars[key] !== undefined ? vars[key] : '';
+    });
+  };
+};
+
 const loadTemplate = () => {
   const logger = require('./logger');
 
   let labels = DEFAULT_LABELS;
   let lines = DEFAULT_LINES;
+  let dmLines = DEFAULT_DM_LINES;
+  let dmChangeTemplates = { ...DEFAULT_DM_CHANGE_TEMPLATES };
   let startMessageLines = DEFAULT_START_MESSAGE_LINES;
   let customConfigStatus = 'not loaded';
 
@@ -151,7 +179,7 @@ const loadTemplate = () => {
     try {
       userConfig = require(jsPath);
       configSource = 'config/template.js';
-      logger.warn('Using deprecated config/template.js. Trygint to migrate it to config/template.json');
+      logger.warn('Using deprecated config/template.js. Trying to migrate it to config/template.json');
       try {
         fs.writeFileSync(jsonPath, JSON.stringify(userConfig, null, 2), 'utf8');
         logger.info('Migrated config/template.js to config/template.json');
@@ -170,6 +198,12 @@ const loadTemplate = () => {
     if (Array.isArray(userConfig.lines)) {
       lines = userConfig.lines;
     }
+    if (Array.isArray(userConfig.dmLines)) {
+      dmLines = userConfig.dmLines;
+    }
+    if (userConfig.dmChangeTemplates && typeof userConfig.dmChangeTemplates === 'object') {
+      dmChangeTemplates = deepMerge(dmChangeTemplates, userConfig.dmChangeTemplates);
+    }
     if (Array.isArray(userConfig.startMessageLines)) {
       startMessageLines = userConfig.startMessageLines;
     }
@@ -177,10 +211,22 @@ const loadTemplate = () => {
     logger.info(`Loaded user template config from ${configSource}`);
   }
 
+  const compiledChangeTemplates = {};
+  for (const [key, value] of Object.entries(dmChangeTemplates)) {
+    compiledChangeTemplates[key] = compileChangeTemplate(value);
+  }
+
   return {
     labels,
     render: compileTemplate(lines),
-    renderStartMessage: compileStartMessageTemplate(startMessageLines),
+    renderDM: compileLinesTemplate(dmLines),
+    renderDMChange: (type, vars) => {
+      const compiled = compiledChangeTemplates[type];
+      if (!compiled) return '';
+      return compiled(vars);
+    },
+    notSetFallback: dmChangeTemplates.notSetFallback || '',
+    renderStartMessage: compileLinesTemplate(startMessageLines),
     customConfigStatus
   };
 };

@@ -7,6 +7,7 @@ const { generateTaskNumber, normalizeDescription } = require('./formatters');
 const telegramService = require('./telegram');
 const debounce = require('./debounce');
 const cleanup = require('./cleanup');
+const dm = require('./dm');
 const db = require('./database');
 const logger = require('./logger');
 const planeApi = require('./plane-api');
@@ -130,7 +131,9 @@ const handleNotification = (config) => async (req, res) => {
     if (payload.event !== 'issue') {
       logger.warn(`Received unknown event: ${payload.event}`);
       return res.sendStatus(200);
-    }    const stateGroup = payload.issue.state?.group || 'backlog';
+    }
+
+    const stateGroup = payload.issue.state?.group || 'backlog';
     const isFinished = stateGroup === 'completed' || stateGroup === 'cancelled';
 
     let projectIdentifier = null;
@@ -187,6 +190,15 @@ const handleNotification = (config) => async (req, res) => {
       issue: payload.issue.name,
       state: stateGroup
     });
+
+    if (action === 'updated') {
+      dm.handleUpdate(
+        payload.issue,
+        payload.activity,
+        config,
+        projectIdentifier
+      );
+    }
 
     if (action === 'created' && isFinished) {
       logger.info(`Skipped posting for finished task`, { taskNumber, state: stateGroup });

@@ -142,10 +142,28 @@ const deleteNotification = async ({ messageId, chatId }) => {
   }
 };
 
+const sendDm = async ({ telegramUserId, message }) => {
+  try {
+    await bot.sendMessage(telegramUserId, message, {
+      parse_mode: 'HTML',
+      disable_web_page_preview: true
+    });
+    logger.info('DM sent', { telegramUserId });
+    return true;
+  } catch (error) {
+    logger.warn('DM send failed (user may not have started bot)', {
+      telegramUserId,
+      error: error.message
+    });
+    return false;
+  }
+};
+
 module.exports = {
   init,
   setStartMessage,
   sendNotification,
   editNotification,
-  deleteNotification
+  deleteNotification,
+  sendDm
 };
