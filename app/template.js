@@ -104,23 +104,49 @@ const loadTemplate = () => {
   let labels = DEFAULT_LABELS;
   let lines = DEFAULT_LINES;
 
-  const userPath = path.join(__dirname, '../config/template.js');
-  if (fs.existsSync(userPath)) {
+  const jsonPath = path.join(__dirname, '../config/template.json');
+  const jsPath = path.join(__dirname, '../config/template.js');
+
+  let userConfig = null;
+  let configSource = null;
+
+  if (fs.existsSync(jsonPath)) {
     try {
-      const userConfig = require(userPath);
-      if (userConfig.labels) {
-        labels = deepMerge(DEFAULT_LABELS, userConfig.labels);
+      userConfig = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+      configSource = 'config/template.json';
+    } catch (err) {
+      logger.warn(`Failed to load config/template.json: ${err.message}`);
+    }
+  } else if (fs.existsSync(jsPath)) {
+    try {
+      userConfig = require(jsPath);
+      configSource = 'config/template.js';
+      logger.warn('Using deprecated config/template.js. Trygint to migrate it to config/template.json');
+      try {
+        fs.writeFileSync(jsonPath, JSON.stringify(userConfig, null, 2), 'utf8');
+        logger.info('Migrated config/template.js to config/template.json');
+      } catch (writeErr) {
+        logger.warn(`Failed to migrate config to JSON: ${writeErr.message}`);
       }
-      if (Array.isArray(userConfig.lines)) {
-        lines = userConfig.lines;
-      }
-      logger.info('Loaded user template config from config/template.js');
     } catch (err) {
       logger.warn(`Failed to load config/template.js: ${err.message}`);
     }
   }
 
-  return { labels, render: compileTemplate(lines) };
+  if (userConfig) {
+    if (userConfig.labels) {
+      labels = deepMerge(DEFAULT_LABELS, userConfig.labels);
+    }
+    if (Array.isArray(userConfig.lines)) {
+      lines = userConfig.lines;
+    }
+    logger.info(`Loaded user template config from ${configSource}`);
+  }
+
+  return {
+    labels,
+    render: compileTemplate(lines)
+  };
 };
 
 const template = loadTemplate();

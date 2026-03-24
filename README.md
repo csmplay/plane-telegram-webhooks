@@ -39,7 +39,7 @@ Put these in `config/` (gitignored).
 }
 ```
 
-`template.js` overrides the default message template. Only set what you want to change. See `app/template.js` for defaults.
+`template.json` overrides the default message template. Only set what you want to change. See `app/template.js` for defaults.
 
 ## License
 
