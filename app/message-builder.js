@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 CyberSport Masters <git@csmpro.ru>
 // SPDX-License-Identifier: AGPL-3.0-only
 
-const path = require('path');
 const template = require('./template');
+const { getTelegramUserId } = require('./users');
 const {
   escapeHtml,
   formatDate,
@@ -11,25 +11,6 @@ const {
   translateState,
   generateTaskNumber
 } = require('./formatters');
-
-const getTelegramUserId = (user) => {
-  try {
-    if (!user) return null;
-
-    const raw = require(path.join(__dirname, '../config/users.json'));
-
-    const map = { ...raw };
-    for (const k in raw) {
-      map[k.toLowerCase()] = raw[k];
-    }
-
-    const lowerName = user.display_name?.toLowerCase();
-
-    return map[user.id] ?? map[lowerName] ?? null;
-  } catch {
-    return null;
-  }
-};
 
 const formatUserMention = (user) => {
   const tgId = getTelegramUserId(user);
