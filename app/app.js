@@ -12,6 +12,7 @@ const ENV_VARS = {
   TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
   TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID,
   TELEGRAM_THREAD_ID: process.env.TELEGRAM_THREAD_ID,
+  START_MESSAGE_ID: process.env.START_MESSAGE_ID,
   PLANE_BASE_URL: process.env.PLANE_BASE_URL,
   PLANE_WORKSPACE_SLUG: process.env.PLANE_WORKSPACE_SLUG,
   PLANE_API_KEY: process.env.PLANE_API_KEY
@@ -28,6 +29,9 @@ const ENV_VARS = {
   if (ENV_VARS.TELEGRAM_THREAD_ID && isNaN(parseInt(ENV_VARS.TELEGRAM_THREAD_ID))) {
     errors.push('TELEGRAM_THREAD_ID must be a number');
   }
+  if (ENV_VARS.START_MESSAGE_ID && isNaN(parseInt(ENV_VARS.START_MESSAGE_ID))) {
+    errors.push('START_MESSAGE_ID must be a number');
+  }
   if (ENV_VARS.PLANE_BASE_URL) {
     try { new URL(ENV_VARS.PLANE_BASE_URL); } catch { errors.push('PLANE_BASE_URL must be a valid URL'); }
   }
@@ -42,8 +46,6 @@ const ENV_VARS = {
 }
 
 const telegramService = require('./telegram');
-telegramService.init();
-
 const webhookHandlers = require('./webhook');
 const debounce = require('./debounce');
 const cleanup = require('./cleanup');
@@ -54,6 +56,17 @@ try {
   const users = require('../config/users.json');
   hasUsers = Object.keys(users).length > 0;
 } catch {}
+
+telegramService.init(ENV_VARS);
+if (ENV_VARS.START_MESSAGE_ID !== '0') {
+  telegramService.setStartMessage({
+    env: ENV_VARS,
+    db,
+    template,
+    debounce,
+    cleanup
+  });
+}
 
 const app = express();
 app.use(express.raw({ type: '*/*', limit: '1mb' }));

@@ -55,6 +55,16 @@ const stmtDelete = db.prepare('DELETE FROM messages WHERE task_number = ?');
 const stmtCount = db.prepare('SELECT COUNT(*) AS count FROM messages');
 
 db.exec(`
+  CREATE TABLE IF NOT EXISTS system_values (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  )
+`);
+
+const stmtGetSystemValue = db.prepare('SELECT value FROM system_values WHERE key = ?');
+const stmtSetSystemValue = db.prepare('INSERT OR REPLACE INTO system_values (key, value) VALUES (?, ?)');
+
+db.exec(`
   CREATE TABLE IF NOT EXISTS event_state (
     task_number TEXT PRIMARY KEY,
     last_event_ts_ms INTEGER
@@ -94,6 +104,16 @@ const getMessageCount = () => {
   return stmtCount.get().count;
 };
 
+
+const getSystemValue = (key) => {
+  const row = stmtGetSystemValue.get(key);
+  return row?.value;
+};
+
+const setSystemValue = (key, value) => {
+  stmtSetSystemValue.run(key, value);
+};
+
 const close = () => {
   try {
     db.close();
@@ -104,6 +124,8 @@ const close = () => {
 };
 
 module.exports = {
+  getSystemValue,
+  setSystemValue,
   getMessageId,
   setMessageId,
   deleteMessageId,

@@ -31,6 +31,10 @@ const DEFAULT_LABELS = {
     locale: 'en-US',
     options: { year: 'numeric', month: '2-digit', day: '2-digit' },
   },
+  timeFormat: {
+    locale: 'en-US',
+    options: { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' },
+  },
   deadline: {
     range: '{start} – {end}',
     target: '{end}',
@@ -55,6 +59,18 @@ const DEFAULT_LINES = [
   '🏷️ Labels: <b>{labels}</b>',
   '👤 Assignees: <b>{assignees}</b>',
   '👨‍💻 Creator: <b>{creator}</b>',
+];
+
+const DEFAULT_START_MESSAGE_LINES = [
+  'Status: {status}',
+  'Uptime: {uptime}',
+  'Pending posts: {pendingPosts}',
+  'Pending deletes: {pendingDeletes}',
+  'Total messages: {totalMessages}',
+  'Template config: {templateConfig}',
+  'Users configured: {hasUsers}',
+  '',
+  'Last update: {lastUpdate}',
 ];
 
 const deepMerge = (target, source) => {
@@ -98,11 +114,24 @@ const compileTemplate = (lines) => {
   };
 };
 
+const compileStartMessageTemplate = (lines) => {
+  return (vars) => {
+    return lines
+      .map(line => {
+        return line.replace(/\{(\w+)\}/g, (_, key) => {
+          return vars[key] !== undefined ? vars[key] : '';
+        });
+      })
+      .join('\n');
+  };
+};
+
 const loadTemplate = () => {
   const logger = require('./logger');
 
   let labels = DEFAULT_LABELS;
   let lines = DEFAULT_LINES;
+  let startMessageLines = DEFAULT_START_MESSAGE_LINES;
   let customConfigStatus = 'not loaded';
 
   const jsonPath = path.join(__dirname, '../config/template.json');
@@ -141,6 +170,9 @@ const loadTemplate = () => {
     if (Array.isArray(userConfig.lines)) {
       lines = userConfig.lines;
     }
+    if (Array.isArray(userConfig.startMessageLines)) {
+      startMessageLines = userConfig.startMessageLines;
+    }
     customConfigStatus = 'loaded';
     logger.info(`Loaded user template config from ${configSource}`);
   }
@@ -148,6 +180,7 @@ const loadTemplate = () => {
   return {
     labels,
     render: compileTemplate(lines),
+    renderStartMessage: compileStartMessageTemplate(startMessageLines),
     customConfigStatus
   };
 };
