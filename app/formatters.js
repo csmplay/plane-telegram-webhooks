@@ -141,10 +141,6 @@ const truncateDescriptionByRules = (text, baseLimit = 200, overhang = 50) => {
     const remainingToLineEnd = lineEnd - baseLimit;
     const shouldIncludeWholeLine = remainingToLineEnd < overhang;
 
-    const prefix = outParts.join('\n');
-    if (prefix) {
-    }
-
     if (shouldIncludeWholeLine) {
       outParts.push(line);
       return fixHtmlCut(outParts.join('\n'));
