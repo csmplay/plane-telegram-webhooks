@@ -103,6 +103,7 @@ const loadTemplate = () => {
 
   let labels = DEFAULT_LABELS;
   let lines = DEFAULT_LINES;
+  let customConfigStatus = 'not loaded';
 
   const jsonPath = path.join(__dirname, '../config/template.json');
   const jsPath = path.join(__dirname, '../config/template.js');
@@ -140,12 +141,14 @@ const loadTemplate = () => {
     if (Array.isArray(userConfig.lines)) {
       lines = userConfig.lines;
     }
+    customConfigStatus = 'loaded';
     logger.info(`Loaded user template config from ${configSource}`);
   }
 
   return {
     labels,
-    render: compileTemplate(lines)
+    render: compileTemplate(lines),
+    customConfigStatus
   };
 };
 

@@ -47,6 +47,13 @@ telegramService.init();
 const webhookHandlers = require('./webhook');
 const debounce = require('./debounce');
 const cleanup = require('./cleanup');
+const template = require('./template');
+
+let hasUsers = false;
+try {
+  const users = require('../config/users.json');
+  hasUsers = Object.keys(users).length > 0;
+} catch {}
 
 const app = express();
 app.use(express.raw({ type: '*/*', limit: '1mb' }));
@@ -67,12 +74,21 @@ app.post('/webhook',
 );
 
 app.get('/health', (req, res) => {
+  let status = 'ok';
+  try {
+    db.getMessageCount();
+  } catch {
+    status = 'error';
+  }
+
   res.json({
-    status: 'ok',
+    status,
     uptime: process.uptime(),
     pendingPosts: debounce.pendingInitialPosts.size,
     pendingDeletes: cleanup.cleanupTimers.size,
-    totalMessages: db.getMessageCount()
+    totalMessages: db.getMessageCount(),
+    templateConfig: template.customConfigStatus,
+    hasUsers
   });
 });
 
