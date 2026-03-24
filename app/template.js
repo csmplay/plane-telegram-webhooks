@@ -1,8 +1,7 @@
 // SPDX-FileCopyrightText: 2026 CyberSport Masters <git@csmpro.ru>
 // SPDX-License-Identifier: AGPL-3.0-only
 
-const fs = require('fs');
-const path = require('path');
+const { loadConfig } = require('./config');
 
 const DEFAULT_LABELS = {
   priorities: {
@@ -162,34 +161,9 @@ const loadTemplate = () => {
   let startMessageLines = DEFAULT_START_MESSAGE_LINES;
   let customConfigStatus = 'not loaded';
 
-  const jsonPath = path.join(__dirname, '../config/template.json');
-  const jsPath = path.join(__dirname, '../config/template.js');
-
   let userConfig = null;
-  let configSource = null;
 
-  if (fs.existsSync(jsonPath)) {
-    try {
-      userConfig = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-      configSource = 'config/template.json';
-    } catch (err) {
-      logger.warn(`Failed to load config/template.json: ${err.message}`);
-    }
-  } else if (fs.existsSync(jsPath)) {
-    try {
-      userConfig = require(jsPath);
-      configSource = 'config/template.js';
-      logger.warn('Using deprecated config/template.js. Trying to migrate it to config/template.json');
-      try {
-        fs.writeFileSync(jsonPath, JSON.stringify(userConfig, null, 2), 'utf8');
-        logger.info('Migrated config/template.js to config/template.json');
-      } catch (writeErr) {
-        logger.warn(`Failed to migrate config to JSON: ${writeErr.message}`);
-      }
-    } catch (err) {
-      logger.warn(`Failed to load config/template.js: ${err.message}`);
-    }
-  }
+  userConfig = loadConfig('template');
 
   if (userConfig) {
     if (userConfig.labels) {
@@ -208,7 +182,7 @@ const loadTemplate = () => {
       startMessageLines = userConfig.startMessageLines;
     }
     customConfigStatus = 'loaded';
-    logger.info(`Loaded user template config from ${configSource}`);
+    logger.info('Loaded user template config');
   }
 
   const compiledChangeTemplates = {};
