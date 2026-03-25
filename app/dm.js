@@ -54,7 +54,9 @@ const buildChangeLines = (changes) => {
   return changes.map((change) => {
     switch (change.type) {
       case 'state': {
-        const from = escapeHtml(translateState(change.old, template.labels));
+        const from = change.old === 'unknown'
+          ? 'unknown'
+          : escapeHtml(translateState(change.old, template.labels));
         const to = escapeHtml(translateState(change.new, template.labels)) || fallback;
         if (!from) return template.renderDMChange('stateNoOld', { to });
         return template.renderDMChange('state', { from, to });
@@ -137,7 +139,7 @@ const handleUpdate = async (issue, activity, config, projectIdentifier) => {
     );
     if (oldStateGroup && newStateGroup && oldStateGroup === newStateGroup) return;
     if (!newStateGroup) return;
-    change = { type: 'state', old: oldStateGroup, new: newStateGroup };
+    change = { type: 'state', old: oldStateGroup || 'unknown', new: newStateGroup };
     for (const a of (issue.assignees || [])) {
       if (a?.id) uniqueUserIds.add(a.id);
     }

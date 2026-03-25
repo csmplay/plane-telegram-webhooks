@@ -79,7 +79,8 @@ const parseBody = (body) => {
         sequence_id: data.sequence_id,
         state: data.state,
         start_date: data.start_date,
-        target_date: data.target_date
+        target_date: data.target_date,
+        project: data.project
       }
     };
   } catch {
