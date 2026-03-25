@@ -241,6 +241,17 @@ const sendPendingDM = async (debounceKey, gen) => {
   if (!entry || entry.gen !== gen) return;
   pendingDMs.delete(debounceKey);
 
+  entry.changes = entry.changes.filter(c => {
+    if (c.type === 'assignees') {
+      const oldSet = new Set(c.initialOldNames || []);
+      const newSet = new Set(c.newNames || []);
+      return oldSet.size !== newSet.size || ![...oldSet].every(n => newSet.has(n));
+    }
+    return c.old !== c.new;
+  });
+
+  if (!entry.changes.length) return;
+
   const message = buildDMMessage(
     entry.issue,
     entry.changes,
@@ -260,14 +271,6 @@ const sendPendingDM = async (debounceKey, gen) => {
   if (unresolvedIds.length) {
     const resolved = await resolveAssigneeNames(unresolvedIds, entry.issue, entry.config);
     for (const [id, name] of resolved) displayNames.set(id, name);
-  }
-
-  const assigneeChange = entry.changes.find(c => c.type === 'assignees');
-  if (assigneeChange) {
-    const initialOldSet = new Set(assigneeChange.initialOldNames || []);
-    const newSet = new Set(assigneeChange.newNames || []);
-
-    if (initialOldSet.size === newSet.size && [...initialOldSet].every(n => newSet.has(n))) return;
   }
 
   for (const planeUserId of entry.allAffectedIds) {
