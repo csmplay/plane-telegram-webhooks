@@ -31,11 +31,11 @@ Or use [docker-compose file](docker-compose.yml).
 
 Put these in `config/` (gitignored).
 
-`users.json` maps Plane display names to Telegram user IDs for mentions:
+`users.json` maps Plane user IDs to Telegram user IDs for mentions:
 
 ```json
 {
-  "John": "123456789"
+  "a8d4c6f1-2b7e-4c90-b3a1-6f2e9d5c8b14": "393340286"
 }
 ```
 
