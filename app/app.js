@@ -50,12 +50,7 @@ const webhookHandlers = require('./webhook');
 const debounce = require('./debounce');
 const cleanup = require('./cleanup');
 const template = require('./template');
-
-let hasUsers = false;
-try {
-  const users = require('../config/users.json');
-  hasUsers = Object.keys(users).length > 0;
-} catch {}
+const { getHealthData } = require('./health');
 
 telegramService.init(ENV_VARS);
 if (ENV_VARS.START_MESSAGE_ID !== '0') {
@@ -87,22 +82,7 @@ app.post('/webhook',
 );
 
 app.get('/health', (req, res) => {
-  let status = 'ok';
-  try {
-    db.getMessageCount();
-  } catch {
-    status = 'error';
-  }
-
-  res.json({
-    status,
-    uptime: process.uptime(),
-    pendingPosts: debounce.pendingInitialPosts.size,
-    pendingDeletes: cleanup.cleanupTimers.size,
-    totalMessages: db.getMessageCount(),
-    templateConfig: template.customConfigStatus,
-    hasUsers
-  });
+  res.json(getHealthData({ db, debounce, cleanup, template }));
 });
 
 const PORT = process.env.PORT || 3111;

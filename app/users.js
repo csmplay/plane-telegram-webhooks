@@ -15,10 +15,12 @@ if (raw) {
   logger.info(`Loaded ${Object.keys(raw).length} users`);
 }
 
+const userCount = raw ? Object.keys(raw).length : 0;
+
 const getTelegramUserId = (user) => {
   if (!user || !userMap) return null;
   const lowerName = user.display_name?.toLowerCase();
   return userMap[user.id] ?? userMap[lowerName] ?? null;
 };
 
-module.exports = { getTelegramUserId };
+module.exports = { getTelegramUserId, userCount };

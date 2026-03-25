@@ -79,13 +79,14 @@ const DEFAULT_DM_CHANGE_TEMPLATES = {
 };
 
 const DEFAULT_START_MESSAGE_LINES = [
+  'Plane Telegram Webhooks Bot v{version}',
   'Status: {status}',
   'Uptime: {uptime}',
   'Pending posts: {pendingPosts}',
   'Pending deletes: {pendingDeletes}',
   'Total messages: {totalMessages}',
-  'Template config: {templateConfig}',
-  'Users configured: {hasUsers}',
+  'Template loaded: {templateLoaded}',
+  'Users: {users}',
   '',
   'Last update: {lastUpdate}',
 ];
@@ -159,7 +160,7 @@ const loadTemplate = () => {
   let dmLines = DEFAULT_DM_LINES;
   let dmChangeTemplates = { ...DEFAULT_DM_CHANGE_TEMPLATES };
   let startMessageLines = DEFAULT_START_MESSAGE_LINES;
-  let customConfigStatus = 'not loaded';
+  let customConfigStatus = false;
 
   let userConfig = null;
 
@@ -181,7 +182,7 @@ const loadTemplate = () => {
     if (Array.isArray(userConfig.startMessageLines)) {
       startMessageLines = userConfig.startMessageLines;
     }
-    customConfigStatus = 'loaded';
+    customConfigStatus = true;
     logger.info('Loaded user template config');
   }
 

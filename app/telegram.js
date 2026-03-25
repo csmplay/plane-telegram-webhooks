@@ -3,6 +3,7 @@
 
 const TelegramBot = require('node-telegram-bot-api');
 const logger = require('./logger');
+const { getHealthData } = require('./health');
 
 let bot = null;
 
@@ -13,39 +14,8 @@ const init = (env) => {
 const setStartMessage = ({ env, db, template, debounce, cleanup }) => {
   let startMessageId = env.START_MESSAGE_ID || db.getSystemValue('start_message_id');
 
-  let hasUsers = false;
-  try {
-    const users = require('../config/users.json');
-    hasUsers = Object.keys(users).length > 0;
-  } catch {}
-
-  const getStatus = () => {
-    try {
-      db.getMessageCount();
-      return 'ok';
-    } catch {
-      return 'error';
-    }
-  };
-
-  const formatTime = () => {
-    const { locale, options } = template.labels.timeFormat;
-    return new Date().toLocaleString(locale, options);
-  };
-
-  const getHealthData = () => ({
-    status: getStatus(),
-    uptime: Math.floor(process.uptime() / 60) + ' minutes',
-    pendingPosts: debounce.pendingInitialPosts.size,
-    pendingDeletes: cleanup.cleanupTimers.size,
-    totalMessages: db.getMessageCount(),
-    templateConfig: template.customConfigStatus,
-    hasUsers: hasUsers ? 'yes' : 'no',
-    lastUpdate: formatTime()
-  });
-
   const updateMessage = async () => {
-    const healthData = getHealthData();
+    const healthData = getHealthData({ db, debounce, cleanup, template, pretty: true });
     const message = template.renderStartMessage(healthData);
 
     try {
