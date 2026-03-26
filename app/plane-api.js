@@ -158,4 +158,24 @@ const getStateGroup = async (stateId, projectId, baseUrl, workspaceSlug, apiKey)
   return group;
 };
 
-module.exports = { getUserDisplayName, getProjectIdentifier, getStateGroup };
+const getIssueDetails = async (issueId, projectId, baseUrl, workspaceSlug, apiKey) => {
+  if (!issueId || !apiKey || !baseUrl || !workspaceSlug || !projectId) return null;
+
+  const cacheKey = `issue:${workspaceSlug}:${issueId}`;
+  const cached = cache.get(cacheKey);
+  if (cached !== cache.MISSING) return cached;
+
+  try {
+    const data = await apiGet(
+      `${baseUrl}/api/v1/workspaces/${workspaceSlug}/projects/${projectId}/work-items/${issueId}/?expand=assignees`,
+      apiKey
+    );
+    cache.set(cacheKey, data);
+    return data;
+  } catch (err) {
+    logger.warn(`Failed to fetch issue details`, { issueId, error: err.message });
+    return null;
+  }
+};
+
+module.exports = { getUserDisplayName, getProjectIdentifier, getStateGroup, getIssueDetails };

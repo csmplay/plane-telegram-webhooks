@@ -25,6 +25,19 @@
 //   {header}            - task name with link
 //   {changes}           - pre-rendered change lines
 //
+// dmCommentLines (comment DM notification):
+//   {commentEmoji}      - 💬 (configurable)
+//   {commentAuthor}     - author display name
+//   {commentText}       - comment text (truncated)
+//   {taskHeader}        - task name with link
+//
+// dmChangeTemplates (change indicators, rendered via renderChange):
+//   state / stateNoOld:       {stateEmoji}, {from}, {to}
+//   priority / priorityNoOld: {priorityEmoji}, {from}, {to}
+//   deadline / deadlineNoOld: {dateEmoji}, {from}, {to}
+//   assignees / assigneesNoOld: {assigneesEmoji}, {from}, {to}
+//   notSetFallback:           value used when {to} is empty
+//
 // startMessageLines (health/start message):
 //   {version}           - app version
 //   {status}            - ok / error
@@ -36,17 +49,13 @@
 //   {users}             - user count
 //   {lastUpdate}        - formatted timestamp
 //
-// dmChangeTemplates (change indicators, rendered via renderChange):
-//   state / stateNoOld:       {stateEmoji}, {from}, {to}
-//   priority / priorityNoOld: {priorityEmoji}, {from}, {to}
-//   deadline / deadlineNoOld: {dateEmoji}, {from}, {to}
-//   assignees / assigneesNoOld: {assigneesEmoji}, {from}, {to}
-//   notSetFallback:           value used when {to} is empty
+// startLines (start command):
+//   (no placeholders)
 //
 // Emojis (config.labels.emojis):
 //   default, completed, cancelled,
 //   dateEmoji, stateEmoji, priorityEmoji,
-//   labelsEmoji, assigneesEmoji, creatorEmoji
+//   labelsEmoji, assigneesEmoji, creatorEmoji, commentEmoji
 
 const { loadConfig } = require('./config');
 
@@ -74,6 +83,7 @@ const DEFAULT_LABELS = {
     labelsEmoji: '🏷️',
     assigneesEmoji: '👤',
     creatorEmoji: '👨‍💻',
+    commentEmoji: '💬',
   },
   header: {
     withLink: '<b><a href="{issueUrl}">{stateEmoji} {taskName}</a></b>',
@@ -116,7 +126,15 @@ const DEFAULT_LINES = [
 const DEFAULT_DM_LINES = [
   '{stateEmoji} Task updated: <b>{header}</b>',
   '',
-  '{changes}'
+  '{changes}',
+];
+
+const DEFAULT_DM_COMMENT_LINES = [
+  '{commentEmoji} New comment by {commentAuthor}',
+  'in <b>{taskHeader}</b>',
+  '',
+  '{commentText}',
+  ''
 ];
 
 const DEFAULT_DM_CHANGE_TEMPLATES = {
@@ -203,6 +221,7 @@ const loadTemplate = () => {
   let labels = DEFAULT_LABELS;
   let lines = DEFAULT_LINES;
   let dmLines = DEFAULT_DM_LINES;
+  let dmCommentLines = DEFAULT_DM_COMMENT_LINES;
   let dmChangeTemplates = { ...DEFAULT_DM_CHANGE_TEMPLATES };
   let startMessageLines = DEFAULT_START_MESSAGE_LINES;
   let startLines = DEFAULT_START_LINES;
@@ -221,6 +240,9 @@ const loadTemplate = () => {
     }
     if (Array.isArray(userConfig.dmLines)) {
       dmLines = userConfig.dmLines;
+    }
+    if (Array.isArray(userConfig.dmCommentLines)) {
+      dmCommentLines = userConfig.dmCommentLines;
     }
     if (userConfig.dmChangeTemplates && typeof userConfig.dmChangeTemplates === 'object') {
       dmChangeTemplates = deepMerge(dmChangeTemplates, userConfig.dmChangeTemplates);
@@ -259,6 +281,7 @@ const loadTemplate = () => {
     labels,
     lines,
     dmLines,
+    dmCommentLines,
     startMessageLines,
     startLines,
     customConfigStatus

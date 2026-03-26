@@ -11,6 +11,7 @@ const dm = require('./dm');
 const db = require('./database');
 const logger = require('./logger');
 const planeApi = require('./plane-api');
+const template = require('./template');
 
 const REQUEST_CACHE_MAX = 1000;
 const REQUEST_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -55,6 +56,40 @@ const parseBody = (body) => {
     const { event, action, activity, data } = parsed;
 
     if (!data) return null;
+
+    if (event === 'issue_comment') {
+      return {
+        event,
+        action,
+        webhookId: parsed.webhook_id || null,
+        activity,
+        project: data.project || parsed.project,
+        created_by: data.actor || data.created_by || parsed.created_by,
+        commentData: {
+          id: data.id,
+          comment_html: data.comment_html,
+          issue: data.issue,
+          project: data.project,
+          created_at: data.created_at,
+          actor: data.actor
+        },
+        issue: {
+          name: null,
+          description: '',
+          priority: null,
+          labels: [],
+          assignees: null,
+          updatedAt: data.updated_at,
+          createdAt: data.created_at,
+          id: data.issue,
+          sequence_id: null,
+          state: null,
+          start_date: null,
+          target_date: null,
+          project: data.project
+        }
+      };
+    }
 
     const description = data.description_html
       ? normalizeDescription(data.description_html)
@@ -128,6 +163,11 @@ const checkDuplicate = (req, res, next) => {
 const handleNotification = (config) => async (req, res) => {
   try {
     const { payload, action } = res.locals;
+
+    if (payload.event === 'issue_comment') {
+      await dm.handleComment(payload.commentData, payload.activity, config);
+      return res.sendStatus(200);
+    }
 
     if (payload.event !== 'issue') {
       logger.warn(`Received unknown event: ${payload.event}`);

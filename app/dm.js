@@ -8,7 +8,8 @@ const {
   escapeHtml,
   formatDate,
   translatePriority,
-  translateState
+  translateState,
+  generateTaskNumber
 } = require('./formatters');
 const logger = require('./logger');
 const planeApi = require('./plane-api');
@@ -299,4 +300,89 @@ const sendPendingDM = async (debounceKey, gen) => {
   }
 };
 
-module.exports = { handleUpdate, pendingDMs };
+const handleComment = async (commentData, activity, config) => {
+  const issueId = commentData.issue;
+  const commentHtml = commentData.comment_html;
+  const projectId = commentData.project;
+
+  if (!issueId) return;
+
+  let projectIdentifier = null;
+  if (config.baseUrl && config.apiKey && config.workspaceSlug && projectId) {
+    projectIdentifier = await planeApi.getProjectIdentifier(
+      projectId,
+      config.baseUrl,
+      config.workspaceSlug,
+      config.apiKey
+    );
+  }
+
+  const issueDetails = await planeApi.getIssueDetails(
+    issueId,
+    projectId,
+    config.baseUrl,
+    config.workspaceSlug,
+    config.apiKey
+  );
+
+  if (!issueDetails) {
+    logger.warn('Failed to fetch issue details for comment', { issueId });
+    return;
+  }
+
+  const assignees = issueDetails.assignees || [];
+  if (!assignees.length) return;
+
+  const commentAuthor = activity?.actor?.display_name || 'Unknown';
+  const commentAuthorId = commentData?.actor || activity?.actor?.id;
+
+  const taskName = issueDetails.name;
+  const taskNumber = generateTaskNumber(projectIdentifier, issueDetails.sequence_id);
+
+  let taskHeader = escapeHtml(taskName);
+  if (issueDetails.sequence_id && config.workspaceSlug && projectIdentifier) {
+    const issueUrl = `${config.baseUrl}/${config.workspaceSlug}/browse/${projectIdentifier}-${issueDetails.sequence_id}`;
+    taskHeader = `<a href="${issueUrl}">${escapeHtml(taskName)}</a>`;
+  }
+
+  const cleanedComment = commentHtml.replace(/<[^>]+>/g, '').trim();
+
+  const message = template.render(template.dmCommentLines, {
+    commentEmoji: template.emojis.commentEmoji || '💬',
+    commentAuthor: escapeHtml(commentAuthor),
+    commentText: escapeHtml(cleanedComment.substring(0, 200)),
+    taskHeader
+  });
+
+  const displayNames = new Map();
+  for (const a of assignees) {
+    if (a?.id && a?.display_name) displayNames.set(a.id, a.display_name);
+  }
+
+  const unresolvedIds = [...displayNames.keys()].filter(id => !displayNames.has(id));
+  if (unresolvedIds.length) {
+    const resolved = await resolveAssigneeNames(unresolvedIds, issueDetails, config);
+    for (const [id, name] of resolved) displayNames.set(id, name);
+  }
+
+  for (const assignee of assignees) {
+    const userId = assignee.id;
+    if (!userId) continue;
+
+    if (commentAuthorId && userId === commentAuthorId) continue;
+
+    const user = displayNames.has(userId)
+      ? { id: userId, display_name: displayNames.get(userId) }
+      : { id: userId, display_name: userId };
+
+    const telegramUserId = getTelegramUserId(user);
+    if (!telegramUserId) continue;
+
+    await telegramService.sendDm({
+      telegramUserId,
+      message
+    });
+  }
+};
+
+module.exports = { handleUpdate, handleComment, pendingDMs };
