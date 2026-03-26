@@ -22,7 +22,7 @@ const buildMessage = ({ issue, activity, projectIdentifier, baseUrl, workspaceSl
   const { labels } = template;
 
   const stateGroup = issue.state?.group || 'backlog';
-  const stateEmoji = labels.emojis[stateGroup] || labels.emojis.default;
+  const stateEmoji = labels.stateEmojis[stateGroup] || labels.stateEmojis.default;
 
   const taskNumber = generateTaskNumber(projectIdentifier, issue.sequence_id);
   const taskName = escapeHtml(issue.name);
@@ -33,13 +33,11 @@ const buildMessage = ({ issue, activity, projectIdentifier, baseUrl, workspaceSl
     header = labels.header.withLink
       .replace('{issueUrl}', issueUrl)
       .replace('{stateEmoji}', stateEmoji)
-      .replace('{taskName}', taskName)
-      .replace('{taskNumber}', taskNumber);
+      .replace('{taskName}', taskName);
   } else {
     header = labels.header.withoutLink
       .replace('{stateEmoji}', stateEmoji)
-      .replace('{taskName}', taskName)
-      .replace('{taskNumber}', taskNumber);
+      .replace('{taskName}', taskName);
   }
 
   const start = formatDate(issue.start_date, labels.dateFormat);

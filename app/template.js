@@ -6,36 +6,29 @@
 // lines (channel notification):
 //   {header}            - task header with link (built by message-builder)
 //   {description}       - task description (HTML)
-//   {dateEmoji}         - 📆 (configurable)
 //   {dateLabel}         - Deadline / Startline / Range
 //   {date}              - formatted date string
-//   {stateEmoji}        - 📊 (configurable)
 //   {state}             - translated state name
-//   {priorityEmoji}     - ⚡ (configurable)
 //   {priority}          - translated priority name
-//   {labelsEmoji}       - 🏷️ (configurable)
 //   {labels}            - comma-separated label names
-//   {assigneesEmoji}    - 👤 (configurable)
 //   {assignees}         - comma-separated user mentions
-//   {creatorEmoji}      - 👨‍💻 (configurable)
 //   {creator}           - creator display name
 //
 // dmLines (DM notification):
-//   {stateEmoji}        - 📊 (configurable)
+//   {stateEmoji}        - emoji for current state
 //   {header}            - task name with link
 //   {changes}           - pre-rendered change lines
 //
 // dmCommentLines (comment DM notification):
-//   {commentEmoji}      - 💬 (configurable)
 //   {commentAuthor}     - author display name
 //   {commentText}       - comment text (truncated)
 //   {taskHeader}        - task name with link
 //
 // dmChangeTemplates (change indicators, rendered via renderChange):
-//   state / stateNoOld:       {stateEmoji}, {from}, {to}
-//   priority / priorityNoOld: {priorityEmoji}, {from}, {to}
-//   deadline / deadlineNoOld: {dateEmoji}, {from}, {to}
-//   assignees / assigneesNoOld: {assigneesEmoji}, {from}, {to}
+//   state / stateNoOld:       {from}, {to}
+//   priority / priorityNoOld: {from}, {to}
+//   deadline / deadlineNoOld: {from}, {to}
+//   assignees / assigneesNoOld: {from}, {to}
 //   notSetFallback:           value used when {to} is empty
 //
 // startMessageLines (health/start message):
@@ -51,11 +44,6 @@
 //
 // startLines (start command):
 //   (no placeholders)
-//
-// Emojis (config.labels.emojis):
-//   default, completed, cancelled,
-//   dateEmoji, stateEmoji, priorityEmoji,
-//   labelsEmoji, assigneesEmoji, creatorEmoji, commentEmoji
 
 const { loadConfig } = require('./config');
 
@@ -73,17 +61,10 @@ const DEFAULT_LABELS = {
     completed: 'DONE',
     cancelled: 'CANCELLED',
   },
-  emojis: {
+  stateEmojis: {
     default: '📝',
     completed: '✅',
     cancelled: '❌',
-    dateEmoji: '📆',
-    stateEmoji: '📊',
-    priorityEmoji: '⚡',
-    labelsEmoji: '🏷️',
-    assigneesEmoji: '👤',
-    creatorEmoji: '👨‍💻',
-    commentEmoji: '💬',
   },
   header: {
     withLink: '<b><a href="{issueUrl}">{stateEmoji} {taskName}</a></b>',
@@ -115,22 +96,22 @@ const DEFAULT_LINES = [
   '',
   '{description}',
   '',
-  '{dateEmoji} {dateLabel}: <b>{date}</b>',
-  '{stateEmoji} Status: <b>{state}</b>',
-  '{priorityEmoji} Priority: <b>{priority}</b>',
-  '{labelsEmoji} Labels: <b>{labels}</b>',
-  '{assigneesEmoji} Assignees: <b>{assignees}</b>',
-  '{creatorEmoji} Creator: <b>{creator}</b>',
+  '📆 {dateLabel}: <b>{date}</b>',
+  '📊 Status: <b>{state}</b>',
+  '⚡ Priority: <b>{priority}</b>',
+  '🏷️ Labels: <b>{labels}</b>',
+  '👤 Assignees: <b>{assignees}</b>',
+  '✏️ Creator: <b>{creator}</b>',
 ];
 
 const DEFAULT_DM_LINES = [
-  '{stateEmoji} Task updated: <b>{header}</b>',
+  '🛎 Task updated: <b>{header}</b>',
   '',
   '{changes}',
 ];
 
 const DEFAULT_DM_COMMENT_LINES = [
-  '{commentEmoji} New comment by {commentAuthor}',
+  '💬 New comment by {commentAuthor}',
   'in <b>{taskHeader}</b>',
   '',
   '{commentText}',
@@ -138,14 +119,14 @@ const DEFAULT_DM_COMMENT_LINES = [
 ];
 
 const DEFAULT_DM_CHANGE_TEMPLATES = {
-  state: '{stateEmoji} Status: <b>{from}</b> → <b>{to}</b>',
-  stateNoOld: '{stateEmoji} Status: <b>{to}</b>',
-  priority: '{priorityEmoji} Priority: <b>{from}</b> → <b>{to}</b>',
-  priorityNoOld: '{priorityEmoji} Priority: <b>{to}</b>',
-  deadline: '{dateEmoji} Deadline: <b>{from}</b> → <b>{to}</b>',
-  deadlineNoOld: '{dateEmoji} Deadline: <b>{to}</b>',
-  assignees: '{assigneesEmoji} Assignees: <b>{from}</b> → <b>{to}</b>',
-  assigneesNoOld: '{assigneesEmoji} Assignees: <b>{to}</b>',
+  state: '📊 Status: <b>{from}</b> → <b>{to}</b>',
+  stateNoOld: '📊 Status: <b>{to}</b>',
+  priority: '⚡ Priority: <b>{from}</b> → <b>{to}</b>',
+  priorityNoOld: '⚡ Priority: <b>{to}</b>',
+  deadline: '📆 Deadline: <b>{from}</b> → <b>{to}</b>',
+  deadlineNoOld: '📆 Deadline: <b>{to}</b>',
+  assignees: '👤 Assignees: <b>{from}</b> → <b>{to}</b>',
+  assigneesNoOld: '👤 Assignees: <b>{to}</b>',
   notSetFallback: 'not set',
 };
 
@@ -262,21 +243,17 @@ const loadTemplate = () => {
     compiledChangeTemplates[key] = compileChange(value);
   }
 
-  const emojis = labels.emojis;
   const notSetFallback = dmChangeTemplates.notSetFallback || '';
-
-  const renderWithEmojis = (lines, vars) => render(lines, { ...emojis, ...vars });
 
   const renderChange = (type, vars) => {
     const compiled = compiledChangeTemplates[type];
     if (!compiled) return '';
-    return compiled({ ...emojis, ...vars });
+    return compiled(vars);
   };
 
   return {
-    render: renderWithEmojis,
+    render,
     renderChange,
-    emojis,
     notSetFallback,
     labels,
     lines,

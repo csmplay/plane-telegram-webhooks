@@ -55,13 +55,10 @@ const buildChangeLines = (changes) => {
   return changes.map((change) => {
     switch (change.type) {
       case 'state': {
-        const emojis = template.emojis || {};
         const fromLabel = translateState(change.old, template.labels);
         const toLabel = translateState(change.new, template.labels);
-        const from = fromLabel
-          ? `${emojis[change.old] || emojis.default || ''} ${escapeHtml(fromLabel)}`
-          : '';
-        const to = `${emojis[change.new] || emojis.default || ''} ${escapeHtml(toLabel)}` || fallback;
+        const from = fromLabel ? escapeHtml(fromLabel) : '';
+        const to = escapeHtml(toLabel) || fallback;
         if (!from) return template.renderChange('stateNoOld', { from, to });
         return template.renderChange('state', { from, to });
       }
@@ -348,7 +345,6 @@ const handleComment = async (commentData, activity, config) => {
   const cleanedComment = commentHtml.replace(/<[^>]+>/g, '').trim();
 
   const message = template.render(template.dmCommentLines, {
-    commentEmoji: template.emojis.commentEmoji || '💬',
     commentAuthor: escapeHtml(commentAuthor),
     commentText: escapeHtml(cleanedComment.substring(0, 200)),
     taskHeader
