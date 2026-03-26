@@ -144,6 +144,12 @@ const DEFAULT_START_MESSAGE_LINES = [
   'Last update: {lastUpdate}',
 ];
 
+const DEFAULT_START_LINES = [
+  'Plane Telegram Webhooks Bot',
+  '',
+  'Ready to notify about your Plane issues.',
+];
+
 const deepMerge = (target, source) => {
   const result = { ...target };
   for (const key of Object.keys(source)) {
@@ -199,6 +205,7 @@ const loadTemplate = () => {
   let dmLines = DEFAULT_DM_LINES;
   let dmChangeTemplates = { ...DEFAULT_DM_CHANGE_TEMPLATES };
   let startMessageLines = DEFAULT_START_MESSAGE_LINES;
+  let startLines = DEFAULT_START_LINES;
   let customConfigStatus = false;
 
   let userConfig = null;
@@ -220,6 +227,9 @@ const loadTemplate = () => {
     }
     if (Array.isArray(userConfig.startMessageLines)) {
       startMessageLines = userConfig.startMessageLines;
+    }
+    if (Array.isArray(userConfig.startLines)) {
+      startLines = userConfig.startLines;
     }
     customConfigStatus = true;
     logger.info('Loaded user template config');
@@ -250,6 +260,7 @@ const loadTemplate = () => {
     lines,
     dmLines,
     startMessageLines,
+    startLines,
     customConfigStatus
   };
 };

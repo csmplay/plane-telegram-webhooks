@@ -62,6 +62,7 @@ if (ENV_VARS.START_MESSAGE_ID !== '0') {
     cleanup
   });
 }
+telegramService.setupCommands(template);
 
 const app = express();
 app.use(express.raw({ type: '*/*', limit: '1mb' }));

@@ -129,11 +129,29 @@ const sendDm = async ({ telegramUserId, message }) => {
   }
 };
 
+const setupCommands = (template) => {
+  bot.onText(/\/start/, async (msg) => {
+    const message = template.render(template.startLines, {});
+    try {
+      await bot.sendMessage(msg.chat.id, message, {
+        parse_mode: 'HTML',
+        disable_web_page_preview: true
+      });
+    } catch (error) {
+      logger.error('Failed to send /start response', { error: error.message });
+    }
+  });
+
+  bot.startPolling();
+  logger.info('Bot polling started');
+};
+
 module.exports = {
   init,
   setStartMessage,
   sendNotification,
   editNotification,
   deleteNotification,
-  sendDm
+  sendDm,
+  setupCommands
 };
