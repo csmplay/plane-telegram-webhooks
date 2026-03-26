@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      COMMIT_URL: https://git.csmpro.ru/${{ github.repository }}/commit
     steps:
       - name: Checkout Repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -36,6 +38,7 @@ jobs:
           fi
           NOTES=$(git log $LOG_RANGE --pretty=format:"%s %h" --reverse | grep -v "chore: release")
           BREAKING=$(echo "$NOTES" | grep -E '^[a-z]+(\([^)]*\))?!:' || true)
+          FORMATTED=$(echo "$NOTES" | sed 's/ \([a-f0-9]\{7\}\)$/ [`\1`]('"${COMMIT_URL//\//\\/}"'\/\1)/')
           {
             echo "### Changelog"
             if [ -n "$BREAKING" ]; then
@@ -43,7 +46,7 @@ jobs:
               echo "**This release has breaking changes!**"
               echo ""
             fi
-            echo "$NOTES" | sed 's/^/- /'
+            echo "$FORMATTED" | sed 's/^/- /'
             echo ""
             echo "---"
             echo ""
