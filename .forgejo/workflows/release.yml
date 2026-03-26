@@ -30,13 +30,20 @@ jobs:
           CUR_TAG="${{ github.ref_name }}"
           PREV_TAG=$(git tag --sort=-creatordate | grep -v "^${CUR_TAG}$" | head -n1)
           if [ -n "$PREV_TAG" ]; then
-            NOTES=$(git log "${PREV_TAG}..${CUR_TAG}" --pretty=format:"- %s %h (@%an)" --reverse | grep -v "chore: release")
+            LOG_RANGE="${PREV_TAG}..${CUR_TAG}"
           else
-            NOTES=$(git log --pretty=format:"- %s %h (@%an)" --reverse | grep -v "chore: release")
+            LOG_RANGE=""
           fi
+          NOTES=$(git log $LOG_RANGE --pretty=format:"%s %h (@%an)" --reverse | grep -v "chore: release")
+          BREAKING=$(echo "$NOTES" | grep -E '^[a-z]+(\([^)]*\))?!:' || true)
           {
             echo "### Changelog"
-            echo "$NOTES"
+            if [ -n "$BREAKING" ]; then
+              echo ""
+              echo "**This release has breaking changes!**"
+              echo ""
+            fi
+            echo "$NOTES" | sed 's/^/- /'
             echo ""
             echo "---"
             echo ""
