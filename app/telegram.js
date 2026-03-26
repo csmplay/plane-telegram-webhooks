@@ -16,7 +16,7 @@ const setStartMessage = ({ env, db, template, debounce, cleanup }) => {
 
   const updateMessage = async () => {
     const healthData = getHealthData({ db, debounce, cleanup, template, pretty: true });
-    const message = template.renderStartMessage(healthData);
+    const message = template.render(template.startMessageLines, healthData);
 
     try {
       if (startMessageId) {

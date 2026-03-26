@@ -54,27 +54,30 @@ const buildChangeLines = (changes) => {
   return changes.map((change) => {
     switch (change.type) {
       case 'state': {
-        const from = change.old === 'unknown'
-          ? 'unknown'
-          : escapeHtml(translateState(change.old, template.labels));
-        const to = escapeHtml(translateState(change.new, template.labels)) || fallback;
-        if (!from) return template.renderDMChange('stateNoOld', { to });
-        return template.renderDMChange('state', { from, to });
+        const emojis = template.emojis || {};
+        const fromLabel = translateState(change.old, template.labels);
+        const toLabel = translateState(change.new, template.labels);
+        const from = fromLabel
+          ? `${emojis[change.old] || emojis.default || ''} ${escapeHtml(fromLabel)}`
+          : '';
+        const to = `${emojis[change.new] || emojis.default || ''} ${escapeHtml(toLabel)}` || fallback;
+        if (!from) return template.renderChange('stateNoOld', { from, to });
+        return template.renderChange('state', { from, to });
       }
 
       case 'priority': {
         const from = escapeHtml(translatePriority(change.old, template.labels));
         const to = escapeHtml(translatePriority(change.new, template.labels)) || fallback;
-        if (!from) return template.renderDMChange('priorityNoOld', { to });
-        return template.renderDMChange('priority', { from, to });
+        if (!from) return template.renderChange('priorityNoOld', { from, to });
+        return template.renderChange('priority', { from, to });
       }
 
       case 'target_date': {
         const dateFormat = template.labels.dateFormat;
         const from = escapeHtml(formatDate(change.old, dateFormat));
         const to = escapeHtml(formatDate(change.new, dateFormat)) || fallback;
-        if (!from) return template.renderDMChange('deadlineNoOld', { to });
-        return template.renderDMChange('deadline', { from, to });
+        if (!from) return template.renderChange('deadlineNoOld', { from, to });
+        return template.renderChange('deadline', { from, to });
       }
 
       case 'assignees': {
@@ -84,8 +87,8 @@ const buildChangeLines = (changes) => {
         const to = (change.newNames || [])
           .map(n => `<b>${escapeHtml(n)}</b>`)
           .join(', ') || fallback;
-        if (!from) return template.renderDMChange('assigneesNoOld', { to });
-        return template.renderDMChange('assignees', { from, to });
+        if (!from) return template.renderChange('assigneesNoOld', { from, to });
+        return template.renderChange('assignees', { from, to });
       }
 
       default:
@@ -106,8 +109,8 @@ const buildDMMessage = (issue, changes, baseUrl, workspaceSlug, projectIdentifie
   const changeLines = buildChangeLines(changes);
   if (!changeLines.length) return null;
 
-  return template.renderDM({
-    taskName: taskHeader,
+  return template.render(template.dmLines, {
+    header: taskHeader,
     changes: changeLines.join('\n')
   });
 };

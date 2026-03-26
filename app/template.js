@@ -1,6 +1,53 @@
 // SPDX-FileCopyrightText: 2026 CyberSport Masters <git@csmpro.ru>
 // SPDX-License-Identifier: AGPL-3.0-only
 
+// Available templates (all use {key} placeholders, emojis auto-injected from config):
+//
+// lines (channel notification):
+//   {header}            - task header with link (built by message-builder)
+//   {description}       - task description (HTML)
+//   {dateEmoji}         - 📆 (configurable)
+//   {dateLabel}         - Deadline / Startline / Range
+//   {date}              - formatted date string
+//   {stateEmoji}        - 📊 (configurable)
+//   {state}             - translated state name
+//   {priorityEmoji}     - ⚡ (configurable)
+//   {priority}          - translated priority name
+//   {labelsEmoji}       - 🏷️ (configurable)
+//   {labels}            - comma-separated label names
+//   {assigneesEmoji}    - 👤 (configurable)
+//   {assignees}         - comma-separated user mentions
+//   {creatorEmoji}      - 👨‍💻 (configurable)
+//   {creator}           - creator display name
+//
+// dmLines (DM notification):
+//   {stateEmoji}        - 📊 (configurable)
+//   {header}            - task name with link
+//   {changes}           - pre-rendered change lines
+//
+// startMessageLines (health/start message):
+//   {version}           - app version
+//   {status}            - ok / error
+//   {uptime}            - formatted uptime
+//   {pendingPosts}      - count
+//   {pendingDeletes}    - count
+//   {totalMessages}     - count
+//   {templateLoaded}    - true / false
+//   {users}             - user count
+//   {lastUpdate}        - formatted timestamp
+//
+// dmChangeTemplates (change indicators, rendered via renderChange):
+//   state / stateNoOld:       {stateEmoji}, {from}, {to}
+//   priority / priorityNoOld: {priorityEmoji}, {from}, {to}
+//   deadline / deadlineNoOld: {dateEmoji}, {from}, {to}
+//   assignees / assigneesNoOld: {assigneesEmoji}, {from}, {to}
+//   notSetFallback:           value used when {to} is empty
+//
+// Emojis (config.labels.emojis):
+//   default, completed, cancelled,
+//   dateEmoji, stateEmoji, priorityEmoji,
+//   labelsEmoji, assigneesEmoji, creatorEmoji
+
 const { loadConfig } = require('./config');
 
 const DEFAULT_LABELS = {
@@ -17,10 +64,16 @@ const DEFAULT_LABELS = {
     completed: 'DONE',
     cancelled: 'CANCELLED',
   },
-  stateEmojis: {
+  emojis: {
     default: '📝',
     completed: '✅',
     cancelled: '❌',
+    dateEmoji: '📆',
+    stateEmoji: '📊',
+    priorityEmoji: '⚡',
+    labelsEmoji: '🏷️',
+    assigneesEmoji: '👤',
+    creatorEmoji: '👨‍💻',
   },
   header: {
     withLink: '<b><a href="{issueUrl}">{stateEmoji} {taskName}</a></b>',
@@ -52,29 +105,29 @@ const DEFAULT_LINES = [
   '',
   '{description}',
   '',
-  '📆 {dateLabel}: <b>{date}</b>',
-  '📊 Status: <b>{state}</b>',
-  '⚡ Priority: <b>{priority}</b>',
-  '🏷️ Labels: <b>{labels}</b>',
-  '👤 Assignees: <b>{assignees}</b>',
-  '👨‍💻 Creator: <b>{creator}</b>',
+  '{dateEmoji} {dateLabel}: <b>{date}</b>',
+  '{stateEmoji} Status: <b>{state}</b>',
+  '{priorityEmoji} Priority: <b>{priority}</b>',
+  '{labelsEmoji} Labels: <b>{labels}</b>',
+  '{assigneesEmoji} Assignees: <b>{assignees}</b>',
+  '{creatorEmoji} Creator: <b>{creator}</b>',
 ];
 
 const DEFAULT_DM_LINES = [
-  '🔔 Task updated: <b>{taskName}</b>',
+  '{stateEmoji} Task updated: <b>{header}</b>',
   '',
   '{changes}'
 ];
 
 const DEFAULT_DM_CHANGE_TEMPLATES = {
-  state: '📊 Status: <b>{from}</b> → <b>{to}</b>',
-  stateNoOld: '📊 Status: <b>{to}</b>',
-  priority: '⚡ Priority: <b>{from}</b> → <b>{to}</b>',
-  priorityNoOld: '⚡ Priority: <b>{to}</b>',
-  deadline: '📆 Deadline: <b>{from}</b> → <b>{to}</b>',
-  deadlineNoOld: '📆 Deadline: <b>{to}</b>',
-  assignees: '👤 Assignees: <b>{from}</b> → <b>{to}</b>',
-  assigneesNoOld: '👤 Assignees: <b>{to}</b>',
+  state: '{stateEmoji} Status: <b>{from}</b> → <b>{to}</b>',
+  stateNoOld: '{stateEmoji} Status: <b>{to}</b>',
+  priority: '{priorityEmoji} Priority: <b>{from}</b> → <b>{to}</b>',
+  priorityNoOld: '{priorityEmoji} Priority: <b>{to}</b>',
+  deadline: '{dateEmoji} Deadline: <b>{from}</b> → <b>{to}</b>',
+  deadlineNoOld: '{dateEmoji} Deadline: <b>{to}</b>',
+  assignees: '{assigneesEmoji} Assignees: <b>{from}</b> → <b>{to}</b>',
+  assigneesNoOld: '{assigneesEmoji} Assignees: <b>{to}</b>',
   notSetFallback: 'not set',
 };
 
@@ -106,45 +159,31 @@ const deepMerge = (target, source) => {
   return result;
 };
 
-const compileTemplate = (lines) => {
-  return (vars) => {
-    return lines
-      .filter(line => {
-        const placeholders = line.match(/\{(\w+)\}/g);
-        if (!placeholders) return true;
-        return placeholders.every(p => {
-          const key = p.slice(1, -1);
-          return vars[key] !== undefined && vars[key] !== '';
-        });
-      })
-      .map(line => {
-        return line.replace(/\{(\w+)\}/g, (_, key) => {
-          return vars[key] !== undefined ? vars[key] : '';
-        });
-      })
-      .filter((line, i, arr) => {
-        if (line.trim() === '') {
-          return i > 0 && arr[i - 1]?.trim() !== '';
-        }
-        return true;
-      })
-      .join('\n');
-  };
+const render = (lines, vars) => {
+  return lines
+    .filter(line => {
+      const placeholders = line.match(/\{(\w+)\}/g);
+      if (!placeholders) return true;
+      return placeholders.every(p => {
+        const key = p.slice(1, -1);
+        return vars[key] !== undefined && vars[key] !== '';
+      });
+    })
+    .map(line => {
+      return line.replace(/\{(\w+)\}/g, (_, key) => {
+        return vars[key] !== undefined ? vars[key] : '';
+      });
+    })
+    .filter((line, i, arr) => {
+      if (line.trim() === '') {
+        return i > 0 && arr[i - 1]?.trim() !== '';
+      }
+      return true;
+    })
+    .join('\n');
 };
 
-const compileLinesTemplate = (lines) => {
-  return (vars) => {
-    return lines
-      .map(line => {
-        return line.replace(/\{(\w+)\}/g, (_, key) => {
-          return vars[key] !== undefined ? vars[key] : '';
-        });
-      })
-      .join('\n');
-  };
-};
-
-const compileChangeTemplate = (str) => {
+const compileChange = (str) => {
   return (vars) => {
     return str.replace(/\{(\w+)\}/g, (_, key) => {
       return vars[key] !== undefined ? vars[key] : '';
@@ -188,20 +227,29 @@ const loadTemplate = () => {
 
   const compiledChangeTemplates = {};
   for (const [key, value] of Object.entries(dmChangeTemplates)) {
-    compiledChangeTemplates[key] = compileChangeTemplate(value);
+    compiledChangeTemplates[key] = compileChange(value);
   }
 
+  const emojis = labels.emojis;
+  const notSetFallback = dmChangeTemplates.notSetFallback || '';
+
+  const renderWithEmojis = (lines, vars) => render(lines, { ...emojis, ...vars });
+
+  const renderChange = (type, vars) => {
+    const compiled = compiledChangeTemplates[type];
+    if (!compiled) return '';
+    return compiled({ ...emojis, ...vars });
+  };
+
   return {
+    render: renderWithEmojis,
+    renderChange,
+    emojis,
+    notSetFallback,
     labels,
-    render: compileTemplate(lines),
-    renderDM: compileLinesTemplate(dmLines),
-    renderDMChange: (type, vars) => {
-      const compiled = compiledChangeTemplates[type];
-      if (!compiled) return '';
-      return compiled(vars);
-    },
-    notSetFallback: dmChangeTemplates.notSetFallback || '',
-    renderStartMessage: compileLinesTemplate(startMessageLines),
+    lines,
+    dmLines,
+    startMessageLines,
     customConfigStatus
   };
 };
