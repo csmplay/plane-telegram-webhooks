@@ -17,26 +17,23 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    env:
-      REPO_URL: git.csmpro.ru
     steps:
       - name: Checkout Repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-
-      - name: Install jq
-        run: |
-          apt update
-          apt install -y jq
+        with:
+          fetch-depth: 0
 
       - name: Generate Release Notes
         id: release_notes
         run: |
           mkdir -p release
-          API_URL="https://${{ env.REPO_URL }}/api/v1"
           CUR_TAG="${{ github.ref_name }}"
-          TAGS=$(curl -s -H "Authorization: token ${{ secrets.RELEASE_TOKEN }}" "$API_URL/repos/${{ github.repository }}/tags" | jq -r '.[] | "\(.name) \(.commit.sha)"')
-          PREV_TAG=$(echo "$TAGS" | grep -v "$CUR_TAG" | head -n1 | awk '{print $2}')
-          NOTES=$(curl -s -H "Authorization: token ${{ secrets.RELEASE_TOKEN }}" "$API_URL/repos/${{ github.repository }}/compare/$PREV_TAG...$CUR_TAG" | jq -r --arg TAG_MSG "chore: release $CUR_TAG" '.commits[] as $c | ($c.commit.message | split("\n")[0] | ltrimstr(" ") | rtrimstr(" ")) as $title | select($title != $TAG_MSG) | "- \($title) \($c.sha[0:7]) (@\($c.author.login // $c.commit.author.name))"')
+          PREV_TAG=$(git tag --sort=-creatordate | grep -v "^${CUR_TAG}$" | head -n1)
+          if [ -n "$PREV_TAG" ]; then
+            NOTES=$(git log "${PREV_TAG}..${CUR_TAG}" --pretty=format:"- %s %h (@%an)" --reverse | grep -v "chore: release")
+          else
+            NOTES=$(git log --pretty=format:"- %s %h (@%an)" --reverse | grep -v "chore: release")
+          fi
           {
             echo "### Changelog"
             echo "$NOTES"
