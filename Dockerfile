@@ -13,6 +13,8 @@ RUN corepack enable \
 
 COPY package.json ./
 COPY yarn.lock ./
+
+ENV YARN_NODE_LINKER=node-modules
 RUN yarn install --immutable
 
 COPY . .
