@@ -1,6 +1,6 @@
 {
   "name": "plane-telegram-webhooks",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Forwards Plane webhook events to Telegram",
   "main": "app/app.js",
   "scripts": {
