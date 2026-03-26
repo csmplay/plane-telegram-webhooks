@@ -28,7 +28,7 @@ VOLUME ["/app/config", "/app/data"]
 
 EXPOSE 3111
 
-CMD ["yarn", "start"]
+CMD ["node", "app/app.js"]
 
 LABEL org.opencontainers.image.source="https://git.csmpro.ru/csmpro/plane-telegram-webhooks"
 LABEL org.opencontainers.image.url="https://git.csmpro.ru/csmpro/plane-telegram-webhooks"
