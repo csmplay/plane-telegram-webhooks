@@ -7,6 +7,40 @@ const { getHealthData } = require('./health');
 
 let bot = null;
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const telegramCall = async (fn, context = {}) => {
+  const MAX_ATTEMPTS = 3;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      const isRateLimit = error.message?.includes('429 Too Many Requests');
+      const isServerError = error.message?.includes('500') || error.message?.includes('502') || error.message?.includes('503');
+
+      if ((isRateLimit || isServerError) && attempt < MAX_ATTEMPTS) {
+        let waitMs = 1000 * attempt;
+
+        if (isRateLimit) {
+          const match = error.message.match(/retry after (\d+)/);
+          if (match) waitMs = parseInt(match[1], 10) * 1000;
+        }
+
+        logger.warn(`Telegram API retry (attempt ${attempt}/${MAX_ATTEMPTS})`, {
+          ...context,
+          waitMs,
+          error: error.message
+        });
+        await sleep(waitMs);
+        continue;
+      }
+
+      throw error;
+    }
+  }
+};
+
 const init = (env) => {
   bot = new TelegramBot(env.TELEGRAM_BOT_TOKEN, { polling: false });
 };
@@ -20,19 +54,25 @@ const setStartMessage = ({ env, db, template, debounce, cleanup }) => {
 
     try {
       if (startMessageId) {
-        await bot.editMessageText(message, {
-          chat_id: env.TELEGRAM_CHAT_ID,
-          message_id: startMessageId,
-          parse_mode: 'HTML',
-          disable_web_page_preview: true
-        });
+        await telegramCall(
+          () => bot.editMessageText(message, {
+            chat_id: env.TELEGRAM_CHAT_ID,
+            message_id: startMessageId,
+            parse_mode: 'HTML',
+            disable_web_page_preview: true
+          }),
+          { action: 'editStartMessage' }
+        );
         logger.debug('Start message updated', { messageId: startMessageId });
       } else {
-        const sentMessage = await bot.sendMessage(env.TELEGRAM_CHAT_ID, message, {
-          parse_mode: 'HTML',
-          disable_web_page_preview: true,
-          message_thread_id: env.TELEGRAM_THREAD_ID ? parseInt(env.TELEGRAM_THREAD_ID, 10) : undefined
-        });
+        const sentMessage = await telegramCall(
+          () => bot.sendMessage(env.TELEGRAM_CHAT_ID, message, {
+            parse_mode: 'HTML',
+            disable_web_page_preview: true,
+            message_thread_id: env.TELEGRAM_THREAD_ID ? parseInt(env.TELEGRAM_THREAD_ID, 10) : undefined
+          }),
+          { action: 'sendStartMessage' }
+        );
         startMessageId = sentMessage.message_id;
         db.setSystemValue('start_message_id', startMessageId);
         logger.info('Start message sent', { messageId: startMessageId });
@@ -63,7 +103,10 @@ const sendNotification = async ({ message, taskId, taskNumber, chatId, threadId 
       options.message_thread_id = parseInt(threadId, 10);
     }
 
-    const sentMessage = await bot.sendMessage(chatId, message, options);
+    const sentMessage = await telegramCall(
+      () => bot.sendMessage(chatId, message, options),
+      { action: 'sendNotification', taskNumber }
+    );
     const db = require('./database');
     db.setMessageId(taskId, sentMessage.message_id);
 
@@ -81,12 +124,15 @@ const editNotification = async ({ message, taskId, taskNumber, chatId }) => {
   if (!messageId) return null;
 
   try {
-    await bot.editMessageText(message, {
-      chat_id: chatId,
-      message_id: messageId,
-      parse_mode: 'HTML',
-      disable_web_page_preview: true
-    });
+    await telegramCall(
+      () => bot.editMessageText(message, {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true
+      }),
+      { action: 'editNotification', taskNumber }
+    );
 
     logger.info(`Edited in Telegram`, { taskNumber, messageId });
     return messageId;
@@ -103,7 +149,10 @@ const editNotification = async ({ message, taskId, taskNumber, chatId }) => {
 
 const deleteNotification = async ({ messageId, chatId }) => {
   try {
-    await bot.deleteMessage(chatId, messageId);
+    await telegramCall(
+      () => bot.deleteMessage(chatId, messageId),
+      { action: 'deleteNotification', messageId }
+    );
     logger.info(`Deleted from Telegram`, { messageId });
     return true;
   } catch (error) {
@@ -114,10 +163,13 @@ const deleteNotification = async ({ messageId, chatId }) => {
 
 const sendDm = async ({ telegramUserId, message }) => {
   try {
-    await bot.sendMessage(telegramUserId, message, {
-      parse_mode: 'HTML',
-      disable_web_page_preview: true
-    });
+    await telegramCall(
+      () => bot.sendMessage(telegramUserId, message, {
+        parse_mode: 'HTML',
+        disable_web_page_preview: true
+      }),
+      { action: 'sendDm', telegramUserId }
+    );
     logger.info('DM sent', { telegramUserId });
     return true;
   } catch (error) {
@@ -133,10 +185,13 @@ const setupCommands = (template) => {
   bot.onText(/\/start/, async (msg) => {
     const message = template.render(template.startLines, {});
     try {
-      await bot.sendMessage(msg.chat.id, message, {
-        parse_mode: 'HTML',
-        disable_web_page_preview: true
-      });
+      await telegramCall(
+        () => bot.sendMessage(msg.chat.id, message, {
+          parse_mode: 'HTML',
+          disable_web_page_preview: true
+        }),
+        { action: 'startCommand' }
+      );
     } catch (error) {
       logger.error('Failed to send /start response', { error: error.message });
     }
