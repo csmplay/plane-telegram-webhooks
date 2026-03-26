@@ -34,7 +34,7 @@ jobs:
           else
             LOG_RANGE=""
           fi
-          NOTES=$(git log $LOG_RANGE --pretty=format:"%s %h (@%an)" --reverse | grep -v "chore: release")
+          NOTES=$(git log $LOG_RANGE --pretty=format:"%s %h" --reverse | grep -v "chore: release")
           BREAKING=$(echo "$NOTES" | grep -E '^[a-z]+(\([^)]*\))?!:' || true)
           {
             echo "### Changelog"
