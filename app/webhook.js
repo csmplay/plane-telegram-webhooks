@@ -8,6 +8,7 @@ const telegramService = require('./telegram');
 const debounce = require('./debounce');
 const cleanup = require('./cleanup');
 const dm = require('./dm');
+const deadlines = require('./deadlines');
 const db = require('./database');
 const logger = require('./logger');
 const planeApi = require('./plane-api');
@@ -231,6 +232,8 @@ const handleNotification = (config) => async (req, res) => {
       issue: payload.issue.name,
       state: stateGroup
     });
+
+    deadlines.recordDeadline(payload.issue, resolvedTaskId, stateGroup);
 
     if (action === 'updated') {
       dm.handleUpdate(

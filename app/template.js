@@ -44,6 +44,11 @@
 //
 // startLines (start command):
 //   (no placeholders)
+//
+// reminderApproachingLines (deadline reminder DM):
+//   {days}            - real days remaining until deadline
+//   {taskHeader}      - task name with link
+//   {deadline}        - formatted deadline date
 
 const { loadConfig } = require('./config');
 
@@ -149,6 +154,13 @@ const DEFAULT_START_LINES = [
   'Ready to notify about your Plane issues.',
 ];
 
+const DEFAULT_REMINDER_APPROACHING_LINES = [
+  '⏰ Deadline in {days} day(s)!',
+  '',
+  'Task: <b>{taskHeader}</b>',
+  'Due: <b>{deadline}</b>',
+];
+
 const deepMerge = (target, source) => {
   const result = { ...target };
   for (const key of Object.keys(source)) {
@@ -206,6 +218,7 @@ const loadTemplate = () => {
   let dmChangeTemplates = { ...DEFAULT_DM_CHANGE_TEMPLATES };
   let startMessageLines = DEFAULT_START_MESSAGE_LINES;
   let startLines = DEFAULT_START_LINES;
+  let reminderApproachingLines = DEFAULT_REMINDER_APPROACHING_LINES;
   let customConfigStatus = false;
 
   let userConfig = null;
@@ -234,6 +247,9 @@ const loadTemplate = () => {
     if (Array.isArray(userConfig.startLines)) {
       startLines = userConfig.startLines;
     }
+    if (Array.isArray(userConfig.reminderApproachingLines)) {
+      reminderApproachingLines = userConfig.reminderApproachingLines;
+    }
     customConfigStatus = true;
     logger.info('Loaded user template config');
   }
@@ -261,6 +277,7 @@ const loadTemplate = () => {
     dmCommentLines,
     startMessageLines,
     startLines,
+    reminderApproachingLines,
     customConfigStatus
   };
 };

@@ -15,7 +15,10 @@ const ENV_VARS = {
   START_MESSAGE_ID: process.env.START_MESSAGE_ID,
   PLANE_BASE_URL: process.env.PLANE_BASE_URL,
   PLANE_WORKSPACE_SLUG: process.env.PLANE_WORKSPACE_SLUG,
-  PLANE_API_KEY: process.env.PLANE_API_KEY
+  PLANE_API_KEY: process.env.PLANE_API_KEY,
+  DEADLINE_CHECK_TIME: process.env.DEADLINE_CHECK_TIME,
+  DEADLINE_NOTIFY_DAYS: process.env.DEADLINE_NOTIFY_DAYS,
+  TZ: process.env.TZ
 };
 
 {
@@ -49,6 +52,7 @@ const telegramService = require('./telegram');
 const webhookHandlers = require('./webhook');
 const debounce = require('./debounce');
 const cleanup = require('./cleanup');
+const deadlines = require('./deadlines');
 const template = require('./template');
 const { getHealthData } = require('./health');
 
@@ -89,6 +93,21 @@ app.get('/health', (req, res) => {
 const PORT = process.env.PORT || 3111;
 const server = app.listen(PORT, () => {
   logger.info(`Webhook service started`, { port: PORT });
+
+  if (ENV_VARS.PLANE_BASE_URL && ENV_VARS.PLANE_API_KEY) {
+    const notifyDays = ENV_VARS.DEADLINE_NOTIFY_DAYS
+      ? ENV_VARS.DEADLINE_NOTIFY_DAYS.split(',').map(s => parseInt(s.trim(), 10)).filter(n => Number.isFinite(n))
+      : undefined;
+
+    deadlines.start({
+      baseUrl: ENV_VARS.PLANE_BASE_URL,
+      workspaceSlug: ENV_VARS.PLANE_WORKSPACE_SLUG,
+      apiKey: ENV_VARS.PLANE_API_KEY,
+      checkTime: ENV_VARS.DEADLINE_CHECK_TIME,
+      notifyDays,
+      tz: ENV_VARS.TZ
+    });
+  }
 });
 
 let isShuttingDown = false;
@@ -109,6 +128,8 @@ const shutdown = async (signal) => {
     await cleanup.flushAll(ENV_VARS.TELEGRAM_CHAT_ID);
     cleanup.cancelAll();
   }
+
+  deadlines.stop();
 
   db.close();
   process.exit(0);

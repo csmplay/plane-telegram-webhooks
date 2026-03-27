@@ -87,6 +87,53 @@ const stmtTrySetLastEventTs = db.prepare(`
 
 const stmtSetEventTs = db.prepare('INSERT OR REPLACE INTO event_state (task_number, last_event_ts_ms) VALUES (?, ?)');
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS task_deadlines (
+    task_number TEXT PRIMARY KEY,
+    task_name TEXT,
+    target_date TEXT NOT NULL,
+    project TEXT,
+    state_group TEXT,
+    assignees TEXT,
+    notified_milestones TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  )
+`);
+
+const stmtUpsertDeadline = db.prepare(`
+  INSERT INTO task_deadlines (task_number, task_name, target_date, project, state_group, assignees, updated_at)
+  VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+  ON CONFLICT(task_number) DO UPDATE SET
+    task_name = excluded.task_name,
+    target_date = excluded.target_date,
+    project = excluded.project,
+    state_group = excluded.state_group,
+    assignees = excluded.assignees,
+    updated_at = excluded.updated_at
+`);
+
+const stmtResetDeadlineTracking = db.prepare(`
+  UPDATE task_deadlines SET notified_milestones = '' WHERE task_number = ?
+`);
+
+const stmtGetDeadlineTargetDate = db.prepare('SELECT target_date FROM task_deadlines WHERE task_number = ?');
+
+const stmtDeleteDeadline = db.prepare('DELETE FROM task_deadlines WHERE task_number = ?');
+
+const stmtGetActiveDeadlines = db.prepare(`
+  SELECT * FROM task_deadlines
+  WHERE state_group NOT IN ('completed', 'cancelled')
+    AND target_date IS NOT NULL
+`);
+
+const stmtMarkMilestone = db.prepare(`
+  UPDATE task_deadlines SET notified_milestones = CASE
+    WHEN notified_milestones = '' OR notified_milestones IS NULL THEN ?
+    ELSE notified_milestones || ',' || ?
+  END WHERE task_number = ?
+`);
+
 const getMessageId = (taskNumber) => {
   const row = stmtGet.get(taskNumber);
   return row?.message_id;
@@ -147,6 +194,22 @@ module.exports = {
 
     stmtSetEventTs.run(toTaskNumber, fromTs);
     stmtDeleteEventTs.run(fromTaskNumber);
+  },
+  upsertDeadline: (taskNumber, taskName, targetDate, project, stateGroup, assigneesJson) => {
+    const prev = stmtGetDeadlineTargetDate.get(taskNumber);
+    stmtUpsertDeadline.run(taskNumber, taskName, targetDate, project, stateGroup, assigneesJson);
+    if (prev && prev.target_date !== targetDate) {
+      stmtResetDeadlineTracking.run(taskNumber);
+    }
+  },
+  deleteDeadline: (taskNumber) => {
+    stmtDeleteDeadline.run(taskNumber);
+  },
+  getActiveDeadlines: () => {
+    return stmtGetActiveDeadlines.all();
+  },
+  markMilestoneNotified: (taskNumber, milestone) => {
+    stmtMarkMilestone.run(String(milestone), String(milestone), taskNumber);
   },
   close
 };
