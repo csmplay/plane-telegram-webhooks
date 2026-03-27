@@ -211,5 +211,15 @@ module.exports = {
   markMilestoneNotified: (taskNumber, milestone) => {
     stmtMarkMilestone.run(String(milestone), String(milestone), taskNumber);
   },
+  markMilestonesNotified: (taskNumber, milestones) => {
+    if (!milestones || milestones.length === 0) return;
+    const combined = milestones.map(String).join(',');
+    db.prepare(`
+      UPDATE task_deadlines SET notified_milestones = CASE
+        WHEN notified_milestones = '' OR notified_milestones IS NULL THEN ?
+        ELSE notified_milestones || ',' || ?
+      END WHERE task_number = ?
+    `).run(combined, combined, taskNumber);
+  },
   close
 };

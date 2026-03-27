@@ -133,15 +133,17 @@ const checkDeadlines = async (config) => {
     const missed = notifyDays.filter(m => m >= daysUntil && !notified.has(m));
 
     if (missed.length > 0) {
-      // Pick smallest missed milestone (closest to deadline, most urgent)
+      // Pick smallest missed milestone (closest to deadline, most urgent) for message
       const milestone = missed[missed.length - 1];
       const message = buildApproachingMessage(deadline, daysUntil, config);
       const { sent, hasUnmapped } = await sendDmToAssignees(deadline.assignees, message);
       if (sent || hasUnmapped) {
-        db.markMilestoneNotified(deadline.task_number, milestone);
+        // Mark ALL missed milestones as notified (not just the one we sent)
+        db.markMilestonesNotified(deadline.task_number, missed);
         logger.debug('Sent deadline reminder', {
           taskNumber: deadline.task_number,
           milestone,
+          missed: missed.join(','),
           daysUntil,
           targetDate: deadline.target_date,
           sent,
