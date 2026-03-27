@@ -284,7 +284,8 @@ const sendPendingDM = async (debounceKey, gen) => {
 
     const ok = await telegramService.sendDm({
       telegramUserId,
-      message
+      message,
+      label: 'field_change'
     });
 
     if (ok) {
@@ -376,7 +377,14 @@ const handleComment = async (commentData, activity, config) => {
 
     await telegramService.sendDm({
       telegramUserId,
-      message
+      message,
+      label: 'comment'
+    });
+
+    logger.debug('Comment DM sent', {
+      telegramUserId,
+      task: taskName,
+      commentAuthor
     });
   }
 };

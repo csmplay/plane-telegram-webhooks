@@ -84,7 +84,7 @@ const sendDmToAssignees = async (assigneesJson, message) => {
       continue;
     }
 
-    const ok = await telegramService.sendDm({ telegramUserId, message });
+    const ok = await telegramService.sendDm({ telegramUserId, message, label: 'deadline' });
     if (ok) sent = true;
   }
 

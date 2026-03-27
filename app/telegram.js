@@ -161,7 +161,7 @@ const deleteNotification = async ({ messageId, chatId }) => {
   }
 };
 
-const sendDm = async ({ telegramUserId, message }) => {
+const sendDm = async ({ telegramUserId, message, label }) => {
   try {
     await telegramCall(
       () => bot.sendMessage(telegramUserId, message, {
@@ -170,7 +170,7 @@ const sendDm = async ({ telegramUserId, message }) => {
       }),
       { action: 'sendDm', telegramUserId }
     );
-    logger.info('DM sent', { telegramUserId });
+    logger.info('DM sent', { telegramUserId, label });
     return true;
   } catch (error) {
     logger.warn('DM send failed (user may not have started bot)', {
