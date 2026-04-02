@@ -18,8 +18,9 @@ const telegramCall = async (fn, context = {}) => {
     } catch (error) {
       const isRateLimit = error.message?.includes('429 Too Many Requests');
       const isServerError = error.message?.includes('500') || error.message?.includes('502') || error.message?.includes('503');
+      const isConnectionError = error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT' || error.code === 'ECONNREFUSED' || error.message?.includes('ECONNRESET') || error.message?.includes('ETIMEDOUT') || error.message?.includes('socket');
 
-      if ((isRateLimit || isServerError) && attempt < MAX_ATTEMPTS) {
+      if ((isRateLimit || isServerError || isConnectionError) && attempt < MAX_ATTEMPTS) {
         let waitMs = 1000 * attempt;
 
         if (isRateLimit) {
@@ -81,7 +82,7 @@ const setStartMessage = ({ env, db, template, debounce, cleanup }) => {
       if (error.response && error.response.body && error.response.body.description === 'Bad Request: message is not modified') {
         logger.info('Start message is not modified, skipping update');
       } else {
-        logger.error('Failed to update start message', { error: error.message });
+        logger.error('Failed to update start message', { error: error.message, code: error.code, stack: error.stack });
       }
     }
   };
@@ -113,7 +114,7 @@ const sendNotification = async ({ message, taskId, taskNumber, chatId, threadId 
     logger.info(`Sent to Telegram`, { taskNumber, messageId: sentMessage.message_id });
     return sentMessage.message_id;
   } catch (error) {
-    logger.error(`Telegram send failed`, { taskNumber, error: error.message });
+    logger.error(`Telegram send failed`, { taskNumber, error: error.message, code: error.code });
     return null;
   }
 };
@@ -142,7 +143,7 @@ const editNotification = async ({ message, taskId, taskNumber, chatId }) => {
       logger.info(`Message unchanged, skipped edit`, { taskNumber });
       return messageId;
     }
-    logger.error(`Telegram edit failed`, { taskNumber, error: error.message });
+    logger.error(`Telegram edit failed`, { taskNumber, error: error.message, code: error.code });
     return null;
   }
 };
@@ -156,7 +157,7 @@ const deleteNotification = async ({ messageId, chatId }) => {
     logger.info(`Deleted from Telegram`, { messageId });
     return true;
   } catch (error) {
-    logger.error(`Telegram delete failed`, { messageId, error: error.message });
+    logger.error(`Telegram delete failed`, { messageId, error: error.message, code: error.code });
     return false;
   }
 };
@@ -195,6 +196,10 @@ const setupCommands = (template) => {
     } catch (error) {
       logger.error('Failed to send /start response', { error: error.message });
     }
+  });
+
+  bot.on('polling_error', (error) => {
+    logger.warn('Bot polling error', { code: error.code, message: error.message });
   });
 
   bot.startPolling();
