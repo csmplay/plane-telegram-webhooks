@@ -343,9 +343,132 @@ const generateTaskNumber = (projectIdentifier, sequenceId) => {
 
 const formatArray = (arr, key) => arr?.filter(Boolean).map(item => item[key]).join(', ') || '';
 
+const preProcessPlaneHtml = (html) => {
+  if (!html) return '';
+  let result = html;
+
+  result = result.replace(/<\/?label[^>]*>/gi, '');
+  result = result.replace(/<\/?span[^>]*>/gi, '');
+  result = result.replace(/<\/?div[^>]*>/gi, '');
+
+  result = result.replace(/<image-component\b[^>]*>/gi, '');
+
+  return result;
+};
+
+const resolvePlaneImages = async (html, baseUrl, workspaceSlug, apiKey, mediaBaseUrl) => {
+  const logger = require('./logger');
+  if (!html || !apiKey || !baseUrl || !workspaceSlug) return html;
+  const escapedBase = baseUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const imgRegex = new RegExp(`(<img\\b[^>]*?)src="(${escapedBase}/api/assets/[^"]*)"([^>]*>)`, 'gi');
+  const componentRegex = /<image-component\b[^>]*?\bsrc="([^"]*)"[^>]*>/gi;
+
+  const assetUuids = new Set();
+
+  let m;
+  while ((m = imgRegex.exec(html)) !== null) {
+    const uuid = m[2].match(/([0-9a-f-]{36})\/?$/)?.[1];
+    if (uuid) assetUuids.add(uuid);
+  }
+
+  while ((m = componentRegex.exec(html)) !== null) {
+    assetUuids.add(m[1]);
+  }
+
+  if (!assetUuids.size) return html;
+
+  logger.debug('resolvePlaneImages', { uuidCount: assetUuids.size, mediaBaseUrl: !!mediaBaseUrl });
+
+  let result = html;
+
+  if (mediaBaseUrl) {
+    const base = mediaBaseUrl.replace(/\/+$/, '');
+    result = result.replace(imgRegex, (match, pre, url, post) => {
+      const uuid = url.match(/([0-9a-f-]{36})\/?$/)?.[1];
+      return uuid ? `${pre}src="${base}/media/${uuid}.png"/>` : '';
+    });
+    result = result.replace(/<image-component\b[^>]*?\bsrc="([^"]*)"[^>]*>/gi, (match, src) => {
+      const uuid = src.match(/([0-9a-f-]{36})\/?$/)?.[1];
+      return uuid ? `<img src="${base}/media/${uuid}.png"/>` : '';
+    });
+    return result;
+  }
+
+  const assetUrls = new Map();
+
+  await Promise.all(Array.from(assetUuids).map(async (uuid) => {
+    try {
+      const resp = await fetch(`${baseUrl}/api/v1/workspaces/${workspaceSlug}/assets/${uuid}/`, {
+        headers: { 'x-api-key': apiKey }
+      });
+
+      if (!resp.ok) {
+        logger.warn('Asset metadata fetch failed', { uuid, status: resp.status });
+        return;
+      }
+
+      const data = await resp.json();
+      if (data.asset_url) {
+        assetUrls.set(uuid, data.asset_url);
+      } else {
+        logger.warn('Asset metadata missing asset_url', { uuid });
+      }
+    } catch (err) {
+      logger.warn('Asset metadata fetch error', { uuid, error: err.message });
+    }
+  }));
+
+  result = result.replace(imgRegex, (match, pre, url, post) => {
+    const uuid = url.match(/([0-9a-f-]{36})\/?$/)?.[1];
+    const resolved = uuid && assetUrls.get(uuid);
+    return resolved ? `${pre}src="${resolved}"${post}` : '';
+  });
+
+  result = result.replace(/<image-component\b[^>]*?\bsrc="([^"]*)"[^>]*>/gi, (match, src) => {
+    const uuid = src.match(/([0-9a-f-]{36})\/?$/)?.[1];
+    const resolved = uuid && assetUrls.get(uuid);
+    return resolved ? `<img src="${resolved}">` : '';
+  });
+
+  return result;
+};
+
+const sanitizeRichHtml = (html) => {
+  if (!html) return '';
+  const preprocessed = preProcessPlaneHtml(html);
+  return sanitizeHtml(preprocessed, {
+    allowedTags: [
+      'b', 'strong', 'i', 'em', 'u', 'ins', 's', 'strike', 'del',
+      'code', 'mark', 'sub', 'sup', 'a', 'br', 'p', 'br',
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+      'pre', 'blockquote', 'hr',
+      'ul', 'ol', 'li', 'input',
+      'img', 'video', 'audio',
+      'table', 'thead', 'tbody', 'tr', 'th', 'td',
+      'tg-spoiler', 'tg-emoji', 'tg-reference', 'tg-time', 'tg-math'
+    ],
+    allowedAttributes: {
+      'a': ['href'],
+      'input': ['type', 'checked'],
+      'img': ['src', 'alt'],
+      'video': ['src'],
+      'audio': ['src'],
+      'tg-emoji': ['emoji-id'],
+      'tg-time': ['unix', 'format'],
+      'tg-reference': ['name']
+    },
+    disallowedTagsMode: 'discard'
+  }).replace(/href="([^"]*?)"/gi, (_, url) => `href="${url.trim()}"`)
+    .replace(/src="([^"]*?)"/gi, (_, url) => `src="${url.replace(/&amp;/g, '&').trim()}"`)
+    .replace(/<img\b([^>]*?)\s+\/>/gi, '<img$1/>')
+    .replace(/<a\b([^>]*?)>([\s\S]*?)<\/a>/gi, '<a$1><u>$2</u></a>');
+};
+
 module.exports = {
   escapeHtml,
   normalizeDescription,
+  sanitizeRichHtml,
+  resolvePlaneImages,
   formatDate,
   translatePriority,
   translateState,

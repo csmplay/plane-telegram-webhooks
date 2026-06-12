@@ -109,6 +109,18 @@ const DEFAULT_LINES = [
   '✏️ Creator: <b>{creator}</b>',
 ];
 
+const DEFAULT_RICH_LINES = [
+  '<h1>{header}</h1>',
+  '{description}',
+  '<br>',
+  '<p>📆 {dateLabel}: <b>{date}</b></p>',
+  '<p>📊 Status: <b>{state}</b></p>',
+  '<p>⚡ Priority: <b>{priority}</b></p>',
+  '<p>🏷️ Labels: <b>{labels}</b></p>',
+  '<p>👤 Assignees: <b>{assignees}</b></p>',
+  '<p>✏️ Creator: <b>{creator}</b></p>',
+];
+
 const DEFAULT_DM_LINES = [
   '🛎 Task updated: <b>{header}</b>',
   '',
@@ -219,6 +231,7 @@ const loadTemplate = () => {
   let startMessageLines = DEFAULT_START_MESSAGE_LINES;
   let startLines = DEFAULT_START_LINES;
   let reminderApproachingLines = DEFAULT_REMINDER_APPROACHING_LINES;
+  let richLines = DEFAULT_RICH_LINES;
   let customConfigStatus = false;
 
   let userConfig = null;
@@ -250,6 +263,9 @@ const loadTemplate = () => {
     if (Array.isArray(userConfig.reminderApproachingLines)) {
       reminderApproachingLines = userConfig.reminderApproachingLines;
     }
+    if (Array.isArray(userConfig.richLines)) {
+      richLines = userConfig.richLines;
+    }
     customConfigStatus = true;
     logger.info('Loaded user template config');
   }
@@ -273,6 +289,7 @@ const loadTemplate = () => {
     notSetFallback,
     labels,
     lines,
+    richLines,
     dmLines,
     dmCommentLines,
     startMessageLines,

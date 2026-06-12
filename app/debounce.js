@@ -18,14 +18,17 @@ const executePendingPost = async (taskId, gen) => {
     if (messageId) {
       await telegramService.editNotification({
         message: pending.message,
+        richHtml: pending.richHtml,
         taskId,
         taskNumber: pending.taskNumber,
-        chatId: pending.chatId
+        chatId: pending.chatId,
+        threadId: pending.threadId
       });
       logger.info(`Applied delayed update to existing message`, { taskNumber: pending.taskNumber });
     } else {
       await telegramService.sendNotification({
         message: pending.message,
+        richHtml: pending.richHtml,
         taskId,
         taskNumber: pending.taskNumber,
         chatId: pending.chatId,
@@ -42,7 +45,7 @@ const executePendingPost = async (taskId, gen) => {
   }
 };
 
-const scheduleInitialPost = ({ taskId, taskNumber, message, chatId, threadId }) => {
+const scheduleInitialPost = ({ taskId, taskNumber, message, richHtml, chatId, threadId }) => {
   const existing = pendingInitialPosts.get(taskId);
 
   if (existing?.timeoutId) {
@@ -51,7 +54,7 @@ const scheduleInitialPost = ({ taskId, taskNumber, message, chatId, threadId }) 
 
   const gen = ++generation;
   const timeoutId = setTimeout(() => executePendingPost(taskId, gen), INITIAL_POST_DELAY_MS);
-  pendingInitialPosts.set(taskId, { timeoutId, message, chatId, threadId, gen, taskNumber });
+  pendingInitialPosts.set(taskId, { timeoutId, message, richHtml, chatId, threadId, gen, taskNumber });
 };
 
 const clearPendingPost = (taskId) => {

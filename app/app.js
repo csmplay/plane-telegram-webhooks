@@ -12,10 +12,12 @@ const ENV_VARS = {
   TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
   TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID,
   TELEGRAM_THREAD_ID: process.env.TELEGRAM_THREAD_ID,
+  TELEGRAM_RICH_MESSAGES: process.env.TELEGRAM_RICH_MESSAGES,
   START_MESSAGE_ID: process.env.START_MESSAGE_ID,
   PLANE_BASE_URL: process.env.PLANE_BASE_URL,
   PLANE_WORKSPACE_SLUG: process.env.PLANE_WORKSPACE_SLUG,
   PLANE_API_KEY: process.env.PLANE_API_KEY,
+  MEDIA_BASE_URL: process.env.MEDIA_BASE_URL,
   DEADLINE_CHECK_TIME: process.env.DEADLINE_CHECK_TIME,
   DEADLINE_NOTIFY_DAYS: process.env.DEADLINE_NOTIFY_DAYS,
   TZ: process.env.TZ
@@ -34,6 +36,9 @@ const ENV_VARS = {
   }
   if (ENV_VARS.START_MESSAGE_ID && isNaN(parseInt(ENV_VARS.START_MESSAGE_ID))) {
     errors.push('START_MESSAGE_ID must be a number');
+  }
+  if (ENV_VARS.TELEGRAM_RICH_MESSAGES && !['true', 'false'].includes(ENV_VARS.TELEGRAM_RICH_MESSAGES.toLowerCase())) {
+    errors.push('TELEGRAM_RICH_MESSAGES must be "true" or "false"');
   }
   if (ENV_VARS.PLANE_BASE_URL) {
     try { new URL(ENV_VARS.PLANE_BASE_URL); } catch { errors.push('PLANE_BASE_URL must be a valid URL'); }
@@ -55,6 +60,7 @@ const cleanup = require('./cleanup');
 const deadlines = require('./deadlines');
 const template = require('./template');
 const { getHealthData } = require('./health');
+const { setupMediaRoute } = require('./media');
 
 telegramService.init(ENV_VARS);
 if (ENV_VARS.START_MESSAGE_ID !== '0') {
@@ -76,7 +82,8 @@ const webhookConfig = {
   workspaceSlug: ENV_VARS.PLANE_WORKSPACE_SLUG,
   apiKey: ENV_VARS.PLANE_API_KEY,
   chatId: ENV_VARS.TELEGRAM_CHAT_ID,
-  threadId: ENV_VARS.TELEGRAM_THREAD_ID
+  threadId: ENV_VARS.TELEGRAM_THREAD_ID,
+  mediaBaseUrl: ENV_VARS.MEDIA_BASE_URL
 };
 
 app.post('/webhook',
@@ -85,6 +92,12 @@ app.post('/webhook',
   webhookHandlers.checkDuplicate,
   webhookHandlers.handleNotification(webhookConfig)
 );
+
+setupMediaRoute(app, {
+  baseUrl: ENV_VARS.PLANE_BASE_URL,
+  workspaceSlug: ENV_VARS.PLANE_WORKSPACE_SLUG,
+  apiKey: ENV_VARS.PLANE_API_KEY
+});
 
 app.get('/health', (req, res) => {
   res.json(getHealthData({ db, debounce, cleanup, template }));

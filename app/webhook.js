@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 const crypto = require('crypto');
-const { buildMessage } = require('./message-builder');
+const { buildMessage, buildRichHtml } = require('./message-builder');
 const { generateTaskNumber, normalizeDescription } = require('./formatters');
 const telegramService = require('./telegram');
 const debounce = require('./debounce');
@@ -106,6 +106,7 @@ const parseBody = (body) => {
       issue: {
         name: data.name,
         description,
+        description_html: data.description_html || '',
         priority: data.priority,
         labels: data.labels,
         assignees: data.assignees,
@@ -263,13 +264,29 @@ const handleNotification = (config) => async (req, res) => {
       workspaceSlug: config.workspaceSlug
     });
 
+    const richResult = telegramService.isRichMessagesEnabled()
+      ? await buildRichHtml({
+        issue: payload.issue,
+        activity,
+        projectIdentifier,
+        baseUrl: config.baseUrl,
+        workspaceSlug: config.workspaceSlug,
+        apiKey: config.apiKey,
+        mediaBaseUrl: config.mediaBaseUrl
+      })
+      : null;
+
+    const richHtml = richResult || null;
+
     if (action === 'created') {
       if (existingMessageId) {
         await telegramService.editNotification({
           message,
+          richHtml,
           taskId: resolvedTaskId,
           taskNumber,
-          chatId: config.chatId
+          chatId: config.chatId,
+          threadId: config.threadId
         });
 
         if (isFinished) {
@@ -286,6 +303,7 @@ const handleNotification = (config) => async (req, res) => {
         taskId: resolvedTaskId,
         taskNumber,
         message,
+        richHtml,
         chatId: config.chatId,
         threadId: config.threadId
       });
@@ -300,7 +318,7 @@ const handleNotification = (config) => async (req, res) => {
         debounce.clearPendingPost(resolvedTaskId);
         logger.info(`Cancelled pending post for finished task`, { taskNumber });
       } else {
-        debounce.pendingInitialPosts.set(resolvedTaskId, { ...pendingPost, message });
+        debounce.pendingInitialPosts.set(resolvedTaskId, { ...pendingPost, message, richHtml });
         logger.info(`Updated pending post snapshot`, { taskNumber });
       }
 
@@ -312,9 +330,11 @@ const handleNotification = (config) => async (req, res) => {
     if (postedMessageId) {
       await telegramService.editNotification({
         message,
+        richHtml,
         taskId: resolvedTaskId,
         taskNumber,
-        chatId: config.chatId
+        chatId: config.chatId,
+        threadId: config.threadId
       });
 
       if (isFinished) {
@@ -327,6 +347,7 @@ const handleNotification = (config) => async (req, res) => {
         taskId: resolvedTaskId,
         taskNumber,
         message,
+        richHtml,
         chatId: config.chatId,
         threadId: config.threadId
       });
