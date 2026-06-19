@@ -18,7 +18,7 @@
       pkgs = nixpkgs.legacyPackages.${system};
     in {
       devShells.default = pkgs.mkShell {
-        buildInputs = with pkgs; [nodejs_24 corepack git reuse docker];
+        buildInputs = with pkgs; [nodejs_24 corepack git reuse docker gnumake gcc opencode];
       };
     });
 }
