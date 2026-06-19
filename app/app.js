@@ -90,7 +90,7 @@ const server = app.listen(PORT, () => {
       baseUrl: ENV.PLANE_BASE_URL,
       workspaceSlug: ENV.PLANE_WORKSPACE_SLUG,
       apiKey: ENV.PLANE_API_KEY,
-      checkTime: ENV.DEADLINE_CHECK_TIME,
+      checkCron: ENV.DEADLINE_CHECK_CRON,
       notifyDays,
       tz: ENV.TZ
     });

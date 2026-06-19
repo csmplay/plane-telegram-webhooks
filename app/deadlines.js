@@ -7,42 +7,41 @@ const template = require('./template');
 const { getTelegramUserId } = require('./users');
 const { escapeHtml, formatDate } = require('./formatters');
 const logger = require('./logger');
+const cronParser = require('cron-parser');
+const { ENV } = require('./config');
 
-const DEFAULT_CHECK_TIME = '10:00'; // HH:MM in local timezone
+const DEFAULT_CHECK_CRON = '0 10 * * *'; // daily at 10:00
 const DEFAULT_NOTIFY_DAYS = [7, 2, 0];
 
 let schedulerTimer = null;
 
-const parseTime = (expr) => {
-  const match = expr.trim().match(/^(\d{1,2}):(\d{2})$/);
-  if (!match) return null;
-
-  const hour = parseInt(match[1], 10);
-  const minute = parseInt(match[2], 10);
-
-  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
-
-  return { hour, minute };
+const parseCron = (expr) => {
+  try {
+    return cronParser.parseExpression(expr.trim(), { tz: ENV.TZ });
+  } catch {
+    return null;
+  }
 };
 
-const nextRunTime = (time, tz, now) => {
-  const { hour, minute } = time;
-  const d = new Date(now);
-
-  if (tz) {
-    const nowInTz = new Date(d.toLocaleString('en-US', { timeZone: tz }));
-    const offset = d.getTime() - nowInTz.getTime();
-    d.setTime(d.getTime() + offset);
-    d.setHours(hour, minute, 0, 0);
-  } else {
-    d.setHours(hour, minute, 0, 0);
+const scheduleNext = (cronExpr, config) => {
+  const interval = parseCron(cronExpr);
+  if (!interval) {
+    logger.error('Invalid cron expression', { cronExpr });
+    return;
   }
 
-  if (d.getTime() <= now) {
-    d.setDate(d.getDate() + 1);
-  }
+  const next = interval.next().toDate();
+  const delay = next.getTime() - Date.now();
 
-  return d.getTime() - now;
+  logger.info('Next deadline check scheduled', { at: next.toISOString(), cronExpr });
+
+  schedulerTimer = setTimeout(() => {
+    checkDeadlines(config).catch(error => {
+      logger.error('Deadline check failed', { error: error.message });
+    }).finally(() => {
+      scheduleNext(cronExpr, config);
+    });
+  }, delay);
 };
 
 const buildIssueUrl = (taskNumber, baseUrl, workspaceSlug) => {
@@ -92,16 +91,17 @@ const sendDmToAssignees = async (assigneesJson, message) => {
 };
 
 const getDaysUntil = (targetDate, tz) => {
-  const target = new Date(targetDate + 'T00:00:00');
   const now = new Date();
 
-  let today;
+  let todayStr;
   if (tz) {
-    const todayStr = now.toLocaleDateString('en-CA', { timeZone: tz });
-    today = new Date(todayStr + 'T00:00:00');
+    todayStr = now.toLocaleDateString('en-CA', { timeZone: tz });
   } else {
-    today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    todayStr = now.toLocaleDateString('en-CA');
   }
+
+  const today = new Date(todayStr + 'T00:00:00');
+  const target = new Date(targetDate + 'T00:00:00');
 
   return Math.round((target.getTime() - today.getTime()) / 86400000);
 };
@@ -154,44 +154,26 @@ const checkDeadlines = async (config) => {
   }
 };
 
-const scheduleNext = (time, tz, config) => {
-  const now = Date.now();
-  const delay = nextRunTime(time, tz, now);
-
-  schedulerTimer = setTimeout(() => {
-    checkDeadlines(config).catch(error => {
-      logger.error('Deadline check failed', { error: error.message });
-    }).finally(() => {
-      scheduleNext(time, tz, config);
-    });
-  }, delay);
-
-  const nextRun = new Date(now + delay);
-  logger.info('Next deadline check scheduled', {
-    at: nextRun.toISOString()
-  });
-};
-
 const start = (config) => {
   stop();
 
-  const timeExpr = config.checkTime || DEFAULT_CHECK_TIME;
-  const time = parseTime(timeExpr);
+  const cronExpr = config.checkCron || DEFAULT_CHECK_CRON;
+  const interval = parseCron(cronExpr);
 
-  if (!time) {
-    logger.error('Invalid DEADLINE_CHECK_TIME format (use HH:MM)', { timeExpr });
+  if (!interval) {
+    logger.error('Invalid DEADLINE_CHECK_CRON expression', { cronExpr });
     return;
   }
 
   const tz = config.tz;
   const notifyDays = config.notifyDays || DEFAULT_NOTIFY_DAYS;
   logger.info('Deadline reminder checker started', {
-    checkTime: timeExpr,
+    cron: cronExpr,
     tz: tz || 'local',
     notifyDays: notifyDays.join(', ')
   });
 
-  scheduleNext(time, tz, config);
+  scheduleNext(cronExpr, config);
 };
 
 const stop = () => {
