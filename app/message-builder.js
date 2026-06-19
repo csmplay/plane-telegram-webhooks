@@ -76,6 +76,7 @@ const buildMessage = ({ issue, activity, projectIdentifier, baseUrl, workspaceSl
     state: translateState(stateGroup, labels),
     priority: translatePriority(issue.priority, labels),
     labels: escapeHtml(formatArray(issue.labels, 'name')),
+    modules: escapeHtml(formatArray(issue.modules, 'name')),
     assignees,
     creator
   });

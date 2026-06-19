@@ -11,6 +11,7 @@
 //   {state}             - translated state name
 //   {priority}          - translated priority name
 //   {labels}            - comma-separated label names
+//   {modules}           - comma-separated module names
 //   {assignees}         - comma-separated user mentions
 //   {creator}           - creator display name
 //
@@ -105,6 +106,7 @@ const DEFAULT_LINES = [
   '📊 Status: <b>{state}</b>',
   '⚡ Priority: <b>{priority}</b>',
   '🏷️ Labels: <b>{labels}</b>',
+  '📦 Modules: <b>{modules}</b>',
   '👤 Assignees: <b>{assignees}</b>',
   '✏️ Creator: <b>{creator}</b>',
 ];
