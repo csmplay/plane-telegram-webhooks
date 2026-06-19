@@ -14,10 +14,7 @@ const { ENV } = require('./config');
     if (!ENV[key]) errors.push(`Missing required env variable: ${key}`);
   });
   if (ENV.TELEGRAM_CHAT_ID && isNaN(parseInt(ENV.TELEGRAM_CHAT_ID))) {
-    errors.push('TELEGRAM_CHAT_ID must be a number');
-  }
-  if (ENV.TELEGRAM_THREAD_ID && isNaN(parseInt(ENV.TELEGRAM_THRDEAD_ID))) {
-    errors.push('TELEGRAM_THREAD_ID must be a number');
+    errors.push('TELEGRAM_CHAT_ID must be a number (or number,number for threads)');
   }
   if (ENV.START_MESSAGE_ID && isNaN(parseInt(ENV.START_MESSAGE_ID))) {
     errors.push('START_MESSAGE_ID must be a number');

@@ -38,13 +38,22 @@ const loadConfig = (name) => {
   return null;
 };
 
+const parseChatId = (raw) => {
+  if (!raw) return { chatId: null, threadId: null };
+  const parts = raw.split(',');
+  const chatId = parts[0].trim() || null;
+  const threadId = parts[1]?.trim() || null;
+  return { chatId, threadId };
+};
+
+const { chatId: PARSED_CHAT_ID, threadId: PARSED_THREAD_ID } = parseChatId(process.env.TELEGRAM_CHAT_ID);
 
 const ENV = {
   PLANE_WEBHOOK_SECRET: process.env.PLANE_WEBHOOK_SECRET,
   TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
-  TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID,
-  TELEGRAM_THREAD_ID: process.env.TELEGRAM_THREAD_ID,
   START_MESSAGE_ID: process.env.START_MESSAGE_ID,
+  TELEGRAM_CHAT_ID: PARSED_CHAT_ID,
+  TELEGRAM_THREAD_ID: PARSED_THREAD_ID,
   PLANE_BASE_URL: process.env.PLANE_BASE_URL,
   PLANE_WORKSPACE_SLUG: process.env.PLANE_WORKSPACE_SLUG,
   PLANE_API_KEY: process.env.PLANE_API_KEY,
