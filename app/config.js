@@ -38,4 +38,21 @@ const loadConfig = (name) => {
   return null;
 };
 
-module.exports = { loadConfig };
+
+const ENV = {
+  PLANE_WEBHOOK_SECRET: process.env.PLANE_WEBHOOK_SECRET,
+  TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
+  TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID,
+  TELEGRAM_THREAD_ID: process.env.TELEGRAM_THREAD_ID,
+  START_MESSAGE_ID: process.env.START_MESSAGE_ID,
+  PLANE_BASE_URL: process.env.PLANE_BASE_URL,
+  PLANE_WORKSPACE_SLUG: process.env.PLANE_WORKSPACE_SLUG,
+  PLANE_API_KEY: process.env.PLANE_API_KEY,
+  DEADLINE_CHECK_TIME: process.env.DEADLINE_CHECK_TIME,
+  DEADLINE_NOTIFY_DAYS: process.env.DEADLINE_NOTIFY_DAYS,
+  TZ: process.env.TZ,
+  PORT: process.env.PORT || 3111,
+  LOG_LEVEL: process.env.LOG_LEVEL || 'INFO'
+};
+
+module.exports = { loadConfig, ENV };
