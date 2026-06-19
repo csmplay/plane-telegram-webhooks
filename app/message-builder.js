@@ -9,7 +9,8 @@ const {
   formatArray,
   translatePriority,
   translateState,
-  generateTaskNumber
+  generateTaskNumber,
+  toHashtag
 } = require('./formatters');
 
 const formatUserMention = (user) => {
@@ -75,8 +76,8 @@ const buildMessage = ({ issue, activity, projectIdentifier, baseUrl, workspaceSl
     date,
     state: translateState(stateGroup, labels),
     priority: translatePriority(issue.priority, labels),
-    labels: escapeHtml(formatArray(issue.labels, 'name')),
-    modules: escapeHtml(formatArray(issue.modules, 'name')),
+    labels: escapeHtml(formatArray(issue.labels, 'name').split(', ').map(toHashtag).join(', ')),
+    modules: escapeHtml(formatArray(issue.modules, 'name').split(', ').map(toHashtag).join(', ')),
     assignees,
     creator
   });

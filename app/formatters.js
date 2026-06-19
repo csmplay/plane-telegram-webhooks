@@ -343,6 +343,13 @@ const generateTaskNumber = (projectIdentifier, sequenceId) => {
 
 const formatArray = (arr, key) => arr?.filter(Boolean).map(item => item[key]).join(', ') || '';
 
+const toHashtag = (name) => {
+  const trimmed = String(name || '').trim();
+  if (!trimmed) return '';
+  const slug = trimmed.replace(/\s+/g, '_');
+  return `#${slug}`;
+};
+
 module.exports = {
   escapeHtml,
   normalizeDescription,
@@ -350,5 +357,6 @@ module.exports = {
   translatePriority,
   translateState,
   generateTaskNumber,
-  formatArray
+  formatArray,
+  toHashtag
 };
