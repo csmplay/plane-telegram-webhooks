@@ -346,7 +346,7 @@ const formatArray = (arr, key) => arr?.filter(Boolean).map(item => item[key]).jo
 const toHashtag = (name) => {
   const trimmed = String(name || '').trim();
   if (!trimmed) return '';
-  const slug = trimmed.replace(/\s+/g, '_');
+  const slug = trimmed.replace(/[\s-]+/g, '_');
   return `#${slug}`;
 };
 
