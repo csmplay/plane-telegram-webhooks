@@ -7,7 +7,7 @@ const template = require('./template');
 const { getTelegramUserId } = require('./users');
 const { escapeHtml, formatDate } = require('./formatters');
 const logger = require('./logger');
-const cronParser = require('cron-parser');
+const { CronExpressionParser } = require('cron-parser');
 const { ENV } = require('./config');
 
 const DEFAULT_CHECK_CRON = '0 10 * * *'; // daily at 10:00
@@ -17,7 +17,7 @@ let schedulerTimer = null;
 
 const parseCron = (expr) => {
   try {
-    return cronParser.parseExpression(expr.trim(), { tz: ENV.TZ });
+    return CronExpressionParser.parse(expr.trim(), { tz: ENV.TZ });
   } catch {
     return null;
   }
